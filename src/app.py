@@ -110,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.PumpProbe = PumpProbe(PumpProbeConfig(lockin_ip = "", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::0::INSTR', sample_rate=1e9))
+        self.PumpProbe = PumpProbe(PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::0::INSTR', sample_rate=1e9))
         self.experiments = list()
         self.setupUi()
 
