@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,13 +11,13 @@ plt.ion()
 class PumpProbeWorker(QtCore.QThread):
     progress = QtCore.pyqtSignal(str)
     finished = QtCore.pyqtSignal()
-    queue_signal = QtCore.pyqtSignal()
+    queue_signal = QtCore.pyqtSignal(QtGui.QColor)
     lockin_status = QtCore.pyqtSignal(str)
     awg_status = QtCore.pyqtSignal(str)
 
-    def __init__(self, pp:PumpProbe, queue: QtWidgets.QListWidget) -> None:
+    def __init__(self, pump_probe:PumpProbe, queue: QtWidgets.QListWidget) -> None:
         super().__init__(parent=None)
-        self.pp = pp
+        self.pump_probe = pump_probe
         self.queue = queue
         self.running_pp = False
         self.repeat_arb = False
@@ -25,19 +26,19 @@ class PumpProbeWorker(QtCore.QThread):
         self.running_pp = False
 
     def init_lockin(self):
-        if self.pp.lockin == None:
+        if self.pump_probe.lockin == None:
             self.progress.emit("[Lock-in] Initializing")
-            self.pp.lockin = LockIn(ip=self.pp.config.lockin_ip, port=self.pp.config.lockin_port)
+            self.pump_probe.lockin = LockIn(ip=self.pump_probe.config.lockin_ip, port=self.pump_probe.config.lockin_port)
 
     def init_awg(self):
-        if self.pp.awg == None:
+        if self.pump_probe.awg == None:
             self.progress.emit("[AWG] Initializing")
-            self.pp.awg = AWG(id=self.pp.config.awg_id)
+            self.pump_probe.awg = AWG(id=self.pump_probe.config.awg_id)
     
     def connect_lockin(self) -> Result:
         self.progress.emit("[Lock-in] Connecting...")
         self.lockin_status.emit("Connecting...")
-        result = self.pp.lockin.connect().expected("[Lock-in] Could not connect:")
+        result = self.pump_probe.lockin.connect().expected("[Lock-in] Could not connect:")
         self.progress.emit(f"[Lock-in] {result.msg}")
         if result.err == True:
             self.lockin_status.emit("Disconnected")
@@ -48,7 +49,7 @@ class PumpProbeWorker(QtCore.QThread):
     def connect_awg(self) -> Result:
         self.progress.emit("[AWG] Connecting...")
         self.awg_status.emit("Connecting...")
-        result = self.pp.awg.connect().expected("[AWG] Could not connect:")
+        result = self.pump_probe.awg.connect().expected("[AWG] Could not connect:")
         self.progress.emit(f"[AWG] {result.msg}")
         if result.err == True:
             self.awg_status.emit("Disconnected")
@@ -67,8 +68,13 @@ class PumpProbeWorker(QtCore.QThread):
         lockin_result = self.connect_lockin()
         awg_result = self.connect_awg()
 
-        if lockin_result.err or awg_result.err:
-            self.progress.emit("One or more devices did not connect. Please connect devices properly before running experiment.")
+        if lockin_result.err:
+            self.progress.emit("[ERROR] Lock-in did not connect. Please ensure Lock-in is able to communicate with local user.")
+            self.finished.emit()
+            return
+                    
+        if awg_result.err:
+            self.progress.emit("[ERROR] AWG did not connect. Please ensure AWG is able to communicate with local user.")
             self.finished.emit()
             return
 
@@ -82,29 +88,22 @@ class PumpProbeWorker(QtCore.QThread):
         self.running_pp = True
         # While the queue is not empty and pump-probe is still set to run (running_pp is set to False by clicking 'Stop queue')
         while(len(self.queue.data) != 0 and self.running_pp):
-            self.queue_signal.emit()
-            exp: PumpProbeExperiment = self.queue.data[0]
-            # If not a repeated pulse, send new pulse data to AWG
-            if not self.repeat:
-                # Reset both devices
-                self.pp.awg.reset()
-                self.pp.lockin.reset()
-                # Create arb for each pulse
-                pump_arb: list = self.pp.create_pulse(exp.pump)
-                probe_arb: list = self.pp.create_pulse(exp.probe)
-                # Send arbs to awg
-                self.pp.awg.send_arb_ch(pump_arb, exp.pump.amp.value(), self.pp.config.sample_rate, 'Pump', 1)
-                self.pp.awg.send_arb_ch(probe_arb, exp.probe.amp.value(), self.pp.config.sample_rate, 'Probe', 2)
-                # Modulate channel 2 amplitude
-                self.pp.awg.modulate_ampitude(self.pp.config.lockin_freq, 2)
-                # Sync channel arbs
-                self.pp.awg.sync_channels(syncFunc=True)
-                # Combine channels
-                self.pp.awg.combine_channels(out=1, feed=2)
-            
+            self.queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
             # Run pump-probe experiment
-            self.pp.run(exp=exp)
-                
+            # If not a repeated pulse, send new pulse data to AWG
+            exp: PumpProbeExperiment = self.queue.data[0]
+            try:
+                self.pump_probe.run(exp=exp, repeat=self.repeat_arb)
+            except Exception as e:
+                msg = f"[ERROR] {e}. "
+                if "'send'" in repr(e):
+                    msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
+                elif "'write'" in repr(e):
+                    msg += " 'write' is an AWG method. Is the AWG connected properly?"
+                self.progress.emit(msg)
+                self.queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
+                self.running_pp = False
+
 
         # Close thread
         self.finished.emit()
@@ -377,6 +376,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_awg_status(self, msg: str) -> None:
         self.awg_status.setText(msg)
+
+    def update_queue_status(self, color: QtGui.QColor) -> None:
+        for cell in range(self.queue.columnCount()):
+            self.queue.item(0, cell).setBackground(color)
         
     def report_progress(self, msg:str) -> None:
         print(f"{msg}")
@@ -389,6 +392,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker.progress.connect(self.report_progress)
         self.worker.lockin_status.connect(self.update_lockin_status)
         self.worker.awg_status.connect(self.update_awg_status)
+        self.worker.queue_signal.connect(self.update_queue_status)
         self.hook.connect(lambda: self.worker.stop_early())
 
         self.worker.start()

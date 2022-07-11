@@ -110,21 +110,28 @@ class PumpProbe:
     Runs a pump-probe experiment by sweeping the phase of one of the pulses.
         exp : PumpProbeExperiment to run
     """
-    def run(self, exp:PumpProbeExperiment) -> Tuple[list, list]:
+    def run(self, exp:PumpProbeExperiment, repeat:bool) -> Tuple[list, list]:
         time_spread = exp.probe.time_spread
         phase_range = exp.phase_range
         sweep_channel = 2
         sample_rate = self.config.sample_rate
 
-        # pump_pulse = self.create_pulse(exp.pump)
-        # probe_pulse = self.create_pulse(exp.probe)
-
-        # self.awg.send_arb_ch(pump_pulse, exp.pump.amp, sample_rate, 'Pump', 1)
-        # self.awg.send_arb_ch(probe_pulse, exp.probe.amp, sample_rate, 'Probe', sweep_channel)
-
-        # self.awg.modulate_ampitude(exp.lockin_freq, 2)
-        # self.awg.sync_channels(syngPhase=True)
-        # self.awg.combine_channels(out=1, feed=2)
+        if not repeat:
+            # Reset both devices
+            self.awg.reset()
+            self.lockin.reset()
+            # Create arb for each pulse
+            pump_arb: list = self.create_pulse(exp.pump)
+            probe_arb: list = self.create_pulse(exp.probe)
+            # Send arbs to awg
+            self.awg.send_arb_ch(pump_arb, exp.pump.amp.value(), self.pp.config.sample_rate, 'Pump', 1)
+            self.awg.send_arb_ch(probe_arb, exp.probe.amp.value(), self.pp.config.sample_rate, 'Probe', 2)
+            # Modulate channel 2 amplitude
+            self.awg.modulate_ampitude(self.pp.config.lockin_freq, 2)
+            # Sync channel arbs
+            self.awg.sync_channels(syncFunc=True)
+            # Combine channels
+            self.awg.combine_channels(out=1, feed=2)
 
         phase_range = np.linspace(-exp.phase_range, exp.phase_range, exp.samples)
 
