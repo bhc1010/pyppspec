@@ -1,7 +1,4 @@
-from multiprocessing.sharedctypes import Value
-import time
 import matplotlib.pyplot as plt
-import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pumpprobe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
 from device import LockIn, AWG, Result
