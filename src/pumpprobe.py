@@ -82,7 +82,7 @@ class PumpProbe:
             => rise_time   : width of rising and falling edge of pulse in seconds 
             => time_spread : period of the waveform
     """
-    def create_pulse(pulse: Pulse) -> list:
+    def create_pulse(self, pulse: Pulse) -> list:
         width = pulse.width
         rise_time = pulse.edge
         time_spread = pulse.time_spread
