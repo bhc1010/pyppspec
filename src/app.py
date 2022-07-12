@@ -115,9 +115,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.PumpProbe = PumpProbe(PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9))
+        config = PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
+        self.PumpProbe = PumpProbe(config)
         self.experiments = list()
-        self.save_path = None
         self.setupUi()
 
     def setupUi(self):
@@ -365,6 +365,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue_btn.clicked.connect(self.start_queue_pushed)
         self.add_to_queue.clicked.connect(self.add_to_queue_pushed)
         self.lockin_ip.textChanged.connect(lambda ip=self.lockin_ip.text(): self.set_lockin_ip(ip=ip))
+        self.action_set_save_path.triggered.connect(self.set_save_path)
 
     def set_lockin_ip(self, ip:str) -> None:
         self.PumpProbe.config.lockin_ip = ip
@@ -387,8 +388,8 @@ class MainWindow(QtWidgets.QMainWindow):
     Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
     """
     def start_queue_pushed(self):
-        if self.save_path == None:
-            self.save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', "/home", "")
+        while self.PumpProbe.config.save_path == "":
+            self.PumpProbe.config.save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
 
         self.worker = PumpProbeWorker(self.PumpProbe, self.queue)
 
@@ -438,3 +439,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
         self.statusbar.showMessage(f"New experiment added to queue.")
         print(f"New experiment added to queue: {self.queue.data[-1]}")
+
+    def set_save_path(self):
+        save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
+        self.PumpProbe.config.save_path = save_path
+        self.report_progress(f"Save path set to {self.PumpProbe.config.save_path}")
