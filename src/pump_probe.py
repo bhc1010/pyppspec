@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from device import LockIn, AWG
 from dataclasses import dataclass
 from typing import Tuple
+from PyQt5.QtCore import pyqtSignal, QObject
 
 """
 Defines an immutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
@@ -41,8 +42,11 @@ class PumpProbeConfig:
 """
 Defines a PumpProbe class that connects and holds references to devices, experimental settings, and runs pump-probe experiments.
 """
-class PumpProbe:
+class PumpProbe(QObject):
+    _plot = pyqtSignal(list)
+
     def __init__(self, config:PumpProbeConfig = None):
+        super().__init__()
         self.config = config
         self.lockin : LockIn = None
         self.awg : AWG = None
@@ -70,7 +74,7 @@ class PumpProbe:
 
             self.lockin.reset()
 
-    def make_experiment(self, time_spread: float, pump_amp: float, pump_width:float, pump_edge:float, probe_amp:float, probe_width:float, probe_edge:float, 
+    def create_experiment(self, time_spread: float, pump_amp: float, pump_width:float, pump_edge:float, probe_amp:float, probe_width:float, probe_edge:float, 
                         phase_range:float, samples:int, lockin_freq:int) -> PumpProbeExperiment:
         pump = Pulse(amp=pump_amp, width=pump_width, edge=pump_edge, time_spread=time_spread)
         probe = Pulse(amp=probe_amp, width=probe_width, edge=probe_edge, time_spread=time_spread)
@@ -83,7 +87,7 @@ class PumpProbe:
             => rise_time   : width of rising and falling edge of pulse in seconds 
             => time_spread : period of the waveform
     """
-    def create_pulse(self, pulse: Pulse) -> list:
+    def create_arb(self, pulse: Pulse) -> list:
         width = pulse.width
         rise_time = pulse.edge
         time_spread = pulse.time_spread
@@ -113,7 +117,7 @@ class PumpProbe:
     def run(self, exp:PumpProbeExperiment, repeat:bool) -> Tuple[list, list]:
         time_spread = exp.probe.time_spread
         phase_range = exp.phase_range
-        sweep_channel = 2
+        sweep_channel = 1
         sample_rate = self.config.sample_rate
 
         if not repeat:
@@ -121,46 +125,48 @@ class PumpProbe:
             self.awg.reset()
             self.lockin.reset()
             # Create arb for each pulse
-            pump_arb: list = self.create_pulse(exp.pump)
-            probe_arb: list = self.create_pulse(exp.probe)
+            pump_arb: list = self.create_arb(exp.pump)
+            probe_arb: list = self.create_arb(exp.probe)
             # Send arbs to awg
-            self.awg.send_arb_ch(pump_arb, exp.pump.amp.value(), self.pp.config.sample_rate, 'Pump', 1)
-            self.awg.send_arb_ch(probe_arb, exp.probe.amp.value(), self.pp.config.sample_rate, 'Probe', 2)
+            self.awg.send_arb_ch(pump_arb, exp.pump.amp, self.config.sample_rate, 'Pump', 1)
+            self.awg.send_arb_ch(probe_arb, exp.probe.amp, self.config.sample_rate, 'Probe', 2)
             # Modulate channel 2 amplitude
-            self.awg.modulate_ampitude(self.pp.config.lockin_freq, 2)
-            # Sync channel arbs
-            self.awg.sync_channels(syncFunc=True)
+            self.awg.modulate_ampitude(self.config.lockin_freq, 2)
             # Combine channels
             self.awg.combine_channels(out=1, feed=2)
+            # Sync channel arbs
+            self.awg.sync_channels(syncFunc=True)
 
         phase_range = np.linspace(-exp.phase_range, exp.phase_range, exp.samples)
 
         data = list()
         dt = list()
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        line = ax.plot(dt, data)[0]
-        plt.show()
-
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # line = ax.plot(dt, data)[0]
+        # plt.show()
+        self.awg.open_channel(1)
         for i in range(len(phase_range)):
             dt.append(phase_range[i] * (time_spread / 360) * sample_rate)
             self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.")
             self.awg.wait().expected("AWG not waiting to set phase.")
             if i == 0:
-                self.lockIn.send('X.'.encode()).expected("Initial buffering message not sent.")
+                self.lockin.send('X.'.encode()).expected("Initial buffering message not sent.")
                 time.sleep(0.2)
-                self.lockIn.recv(1024).expected("Initial buffering message not received.")
+                self.lockin.recv(1024).expected("Initial buffering message not received.")
             time.sleep(0.01)
-            self.lockIn.send('X.'.encode()).expected("Request for X value not sent to Lockin")
-            X = self.lockIn.recv(1024).expected("X value not recieved from Lockin")
+            self.lockin.send('X.'.encode()).expected("Request for X value not sent to Lockin")
+            X = self.lockin.recv(1024).expected("X value not recieved from Lockin")
             if X.err == False:
                 X = X.result().decode()
             X = X.split()[0]
             X = float(X)
             data.append(X)
-            line.set_data(dt, data)
-            ax.relim()
-            ax.autoscale_view()
+            self._plot.emit([dt, data])
+            # time.sleep(0.2)
+            # line.set_data(dt, data)
+            # ax.relim()
+            # ax.autoscale_view()
             # fig.canvas.draw_idle()
 
         # phase_range = np.linspace(-180, 180, 400)
@@ -174,5 +180,5 @@ class PumpProbe:
         #     fig.canvas.flush_events()
 
         # plt.show()
-        
+        self.awg.close_channel(1)
         return (data, dt)
