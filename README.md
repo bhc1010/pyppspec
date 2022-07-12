@@ -5,6 +5,7 @@ Logic for preforming experiments is contained in src/pumpprobe.py. UI code is co
 ## Requirements:
 - Python 3.10
 - PyVisa
+### Frontend requirements:
 - MatplotLib
 - Numpy
 - PyQt5
