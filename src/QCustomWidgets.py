@@ -18,20 +18,24 @@ class QNumericalLineEdit(QtWidgets.QLineEdit):
             case _:
                 return str(val)
 
+class QDataTableRow():
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
 class QDataTable(QtWidgets.QTableWidget):
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
         self.data = list()
 
-    def addItem(self, item: PumpProbeExperiment):
-        self.data.append(item)
-        idx = len(self.data) - 1
-        if idx + 1 > self.rowCount():
-            self.insertRow(idx)
-        self.setItem(idx, 0, QtWidgets.QTableWidgetItem(item.pump.amp.text()))
-        self.setItem(idx, 1, QtWidgets.QTableWidgetItem(item.pump.width.text()))
-        self.setItem(idx, 2, QtWidgets.QTableWidgetItem(item.pump.edge.text()))
-        self.setItem(idx, 3, QtWidgets.QTableWidgetItem(item.probe.amp.text()))
-        self.setItem(idx, 4, QtWidgets.QTableWidgetItem(item.probe.width.text()))
-        self.setItem(idx, 5, QtWidgets.QTableWidgetItem(item.probe.edge.text()))
-        self.setItem(idx, 6, QtWidgets.QTableWidgetItem(item.probe.time_spread.text()))
+    def add_item(self, row: QDataTableRow, data=None):
+        # if no optional data is given, then let new data be QDataTableRow dict 
+        if data == None:
+            data = row.__dict__
+        # add new data to table's data array
+        self.data.append(data)
+        # add QDataTableRow object to table
+        row_idx = len(self.data) - 1
+        if row_idx + 1 > self.rowCount():
+            self.insertRow(row_idx)
+        for col_idx, key in enumerate(row.__dict__.keys()):
+            self.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(row.__dict__[key]))

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pumpprobe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
 from device import LockIn, AWG, Result
-from QCustomWidgets import QDataTable, QNumericalLineEdit
+from QCustomWidgets import QDataTable, QDataTableRow, QNumericalLineEdit
 plt.ion()
 
 class PumpProbeWorker(QtCore.QThread):
@@ -12,7 +12,7 @@ class PumpProbeWorker(QtCore.QThread):
     lockin_status = QtCore.pyqtSignal(str)
     awg_status = QtCore.pyqtSignal(str)
 
-    def __init__(self, pump_probe:PumpProbe, queue: QtWidgets.QListWidget) -> None:
+    def __init__(self, pump_probe:PumpProbe, queue: QDataTable) -> None:
         super().__init__(parent=None)
         self.pump_probe = pump_probe
         self.queue = queue
@@ -86,11 +86,10 @@ class PumpProbeWorker(QtCore.QThread):
         # While the queue is not empty and pump-probe is still set to run (running_pp is set to False by clicking 'Stop queue')
         while(len(self.queue.data) != 0 and self.running_pp):
             self.queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
-            # Run pump-probe experiment
-            # If not a repeated pulse, send new pulse data to AWG
+            # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
             try:
-                self.pump_probe.run(exp=exp, repeat=self.repeat_arb)
+                volt_data, dt = self.pump_probe.run(exp=exp, repeat=self.repeat_arb)
             except Exception as e:
                 msg = f"[ERROR] {e}. "
                 if "'send'" in repr(e):
@@ -100,9 +99,15 @@ class PumpProbeWorker(QtCore.QThread):
                 self.progress.emit(msg)
                 self.queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
                 self.running_pp = False
+            # Save measurement data
+            
+            # Check if next experiment in queue is a repeat arb
 
-
+            # Remove experiment from queue data and top row
+            del self.queue.data[0]
+            self.queue.removeRow(0)
         # Close thread
+        self.progress.emit("QThread finished. Pump-probe experiment(s) stopped.")
         self.finished.emit()
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -110,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.PumpProbe = PumpProbe(PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::0::INSTR', sample_rate=1e9))
+        self.PumpProbe = PumpProbe(PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9))
         self.experiments = list()
         self.setupUi()
 
@@ -126,7 +131,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.add_to_queue.setObjectName("add_to_queue")
 
         self.queue_btn = QtWidgets.QPushButton(self.centralwidget)
-        self.queue_btn.setGeometry(QtCore.QRect(730, 460, 251, 41))
+        self.queue_btn.setGeometry(QtCore.QRect(730, 460, 241, 41))
         self.queue_btn.setObjectName("queue_btn")
 
         # Table queue
@@ -150,12 +155,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.horizontalHeader().setCascadingSectionResizes(False)
         self.queue.verticalHeader().setVisible(True)
         
-        
         # Pump pulse  box
         self.pump_box = QtWidgets.QGroupBox(self.centralwidget)
         self.pump_box.setGeometry(QtCore.QRect(10, 10, 251, 131))
         self.pump_box.setObjectName("pump_box")
 
+        # Pump pulse box layout
         self.pump_box_layout = QtWidgets.QWidget(self.pump_box)
         self.pump_box_layout.setGeometry(QtCore.QRect(9, 29, 231, 91))
         self.pump_box_layout.setObjectName("pump_box_layout")
@@ -187,10 +192,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pump_edge.setObjectName("pump_edge")
         self.pump_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.pump_edge)
 
-        # Probe pulse layout
+        # Probe pulse box
         self.probe_box = QtWidgets.QGroupBox(self.centralwidget)
         self.probe_box.setGeometry(QtCore.QRect(10, 150, 251, 131))
         self.probe_box.setObjectName("probe_box")
+
+        # Probe pulse box layout
         self.probe_box_layout = QtWidgets.QWidget(self.probe_box)
         self.probe_box_layout.setGeometry(QtCore.QRect(9, 29, 231, 91))
         self.probe_box_layout.setObjectName("probe_box_layout")
@@ -310,36 +317,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle(_translate("MainWindow", "Pump Probe"))
-        self.add_to_queue.setText(_translate("MainWindow", "Add to queue"))
-        self.queue_btn.setText(_translate("MainWindow", "Start queue"))
-        self.pump_box.setTitle(_translate("MainWindow", "Pump"))
-        self.pump_amp_label.setText(_translate("MainWindow", "Amplitude (V)     "))
-        self.pump_width_label.setText(_translate("MainWindow", "Width (s)"))
-        self.pump_edge_layout.setText(_translate("MainWindow", "Edge (s)"))
-        self.probe_box.setTitle(_translate("MainWindow", "Probe"))
-        self.probe_amp_label.setText(_translate("MainWindow", "Amplitude (V)     "))
-        self.probe_width_label.setText(_translate("MainWindow", "Width (s)"))
-        self.probe_edge_label.setText(_translate("MainWindow", "Edge (s)"))
-        self.pulse_length_label.setText(_translate("MainWindow", "Pulse Length (s)"))
-        self.lockin_ip_label.setText(_translate("MainWindow", "Lock-in IP"))
-        self.lockin_ip.setText(_translate("MainWindow", "169.254.11.17"))
+        self.setWindowTitle("Pump Probe")
+        self.add_to_queue.setText("Add to queue")
+        self.queue_btn.setText("Start queue")
+        self.pump_box.setTitle("Pump")
+        self.pump_amp_label.setText("Amplitude (V)     ")
+        self.pump_width_label.setText("Width (s)")
+        self.pump_edge_layout.setText("Edge (s)")
+        self.probe_box.setTitle("Probe")
+        self.probe_amp_label.setText("Amplitude (V)     ")
+        self.probe_width_label.setText("Width (s)")
+        self.probe_edge_label.setText("Edge (s)")
+        self.pulse_length_label.setText("Pulse Length (s)")
+        self.lockin_ip_label.setText("Lock-in IP")
+        self.lockin_ip.setText("169.254.11.17")
 
         # Queue headers
-        item = self.queue.horizontalHeaderItem(0)
-        item.setText(_translate("MainWindow", "Pump Amp"))
-        item = self.queue.horizontalHeaderItem(1)
-        item.setText(_translate("MainWindow", "Pump Width"))
-        item = self.queue.horizontalHeaderItem(2)
-        item.setText(_translate("MainWindow", "Pump Edge"))
-        item = self.queue.horizontalHeaderItem(3)
-        item.setText(_translate("MainWindow", "Probe Amp"))
-        item = self.queue.horizontalHeaderItem(4)
-        item.setText(_translate("MainWindow", "Probe Width"))
-        item = self.queue.horizontalHeaderItem(5)
-        item.setText(_translate("MainWindow", "Probe Edge"))
-        item = self.queue.horizontalHeaderItem(6)
-        item.setText(_translate("MainWindow", "Time Spread"))
+        self.queue.horizontalHeaderItem(0).setText("Pump Amp")
+        self.queue.horizontalHeaderItem(1).setText("Pump Width")
+        self.queue.horizontalHeaderItem(2).setText("Pump Edge")
+        self.queue.horizontalHeaderItem(3).setText("Probe Amp")
+        self.queue.horizontalHeaderItem(4).setText("Probe Width")
+        self.queue.horizontalHeaderItem(5).setText("Probe Edge")
+        self.queue.horizontalHeaderItem(6).setText("Time Spread")
 
         # Defaults
         self.pump_amp.setText("0.95")
@@ -351,14 +351,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pulse_length.setText("100e-9")
         self.lockin_freq.setText("1007")
 
-        self.lockin_freq_label.setText(_translate("MainWindow", "Lock-in Freq (Hz)"))
-        self.lockin_status_label.setText(_translate("MainWindow", "Lock-in status: "))
+        self.lockin_freq_label.setText("Lock-in Freq (Hz)")
+        self.lockin_status_label.setText("Lock-in status: ")
         self.lockin_status.setText("Disconnected")
-        self.awg_status_label.setText(_translate("MainWindow", "AWG status: "))
+        self.awg_status_label.setText("AWG status: ")
         self.awg_status.setText("Disconnected")
-        self.menu_file.setTitle(_translate("MainWindow", "File"))
-        self.action_set_save_path.setText(_translate("MainWindow", "Set save path"))
-        self.action_reset_connected_devices.setText(_translate("MainWindow", "Reset connected devices"))
+        self.menu_file.setTitle("File")
+        self.action_set_save_path.setText("Set save path")
+        self.action_reset_connected_devices.setText("Reset connected devices")
 
     def init_connections(self):
         self.queue_btn.clicked.connect(self.start_queue_pushed)
@@ -382,10 +382,13 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"{msg}")
         self.statusbar.showMessage(msg)
 
+    """
+    Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
+    """
     def start_queue_pushed(self):
         self.worker = PumpProbeWorker(self.PumpProbe, self.queue)
 
-        self.worker.started.connect(lambda: print("QThread started. Running pump-probe experiment(s)."))
+        self.worker.started.connect(lambda: self.report_progress("QThread started. Running pump-probe experiment(s)."))
         self.worker.progress.connect(self.report_progress)
         self.worker.lockin_status.connect(self.update_lockin_status)
         self.worker.awg_status.connect(self.update_awg_status)
@@ -402,18 +405,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker.finished.connect(lambda: self.queue_btn.clicked.disconnect())
         self.worker.finished.connect(lambda: self.queue_btn.clicked.connect(self.start_queue_pushed))
 
+    """
+    Called when 'Stop queue' button is pushed. Emits hook signal to stop queue after current experiment is finished.
+    """
     def stop_queue_pushed(self):
         self.hook.emit()
         self.hook.disconnect()
 
     """
-    TODO: Pulse is being constructed with a QNumericalLineEdit object for each entry, instead of a float. Need to
-          figure out how to create a string with the proper sigfigs (as inputed from user)
-          i.e type(self.pump_amp) == QNumericalLineEdit (instead of type(self.pump_amp) == float)
+    Returns a dict containing all relevant experimental information to be displayed in the queue.
+    TODO: should lock-in freq be included? (i.e. variable between experiments)
+    """
+    def get_experiment_dict(self) -> dict[str, str]:
+        return {'pump_amp': self.pump_amp.text(), 'pump_width': self.pump_width.text(), 'pump_edge': self.pump_edge.text(),
+                'probe_amp': self.probe_amp.text(), 'probe_width': self.probe_width.text(), 'probe_edge': self.probe_edge.text(),
+                'pulse_length': self.pulse_length.text()}
+
+    """
+    Called when 'Add to queue' button is pressed. Creates two Pulse objects and a PumpProbeExperiment which gets passed to the queue via QDataTable.add_item().
+    The row information is in the form of a QDataTableRow object which gets passed a dictionary from get_experiment_dict(). This allows the information 
+    presented in the row be equivalent to what the user inputed (i.e. 100e-9 -> 100e-9 and not 100e-9 -> 1e-7). The new PumpProbeExperiment is instantiated
+    with float values and added to the QDataTable's data array via QDataTable.add_item(..., data = PumpProbeExperiment(...))
     """
     def add_to_queue_pushed(self):
-        pump_pulse = Pulse(self.pump_amp, self.pump_width, self.pump_edge, self.pulse_length)
-        probe_pulse = Pulse(self.probe_amp, self.probe_width, self.probe_edge, self.pulse_length)
-        new_experiment = PumpProbeExperiment(pump_pulse, probe_pulse, 180, 400, self.lockin_freq.value())
-        self.queue.addItem(new_experiment)
+        pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.pulse_length.value())
+        probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
+        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=400, lockin_freq=self.lockin_freq.value())
+        self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
         self.statusbar.showMessage(f"New experiment added to queue.")
+        print(f"New experiment added to queue: {self.queue.data[-1]}")
