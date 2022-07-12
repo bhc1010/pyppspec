@@ -109,7 +109,6 @@ class PumpProbeWorker(QtCore.QThread):
             # Remove experiment from queue data and top row
             del self.queue.data[0]
             self.queue.removeRow(0)
-            self.repeat_arb=True
         # Close thread
         self.progress.emit("QThread finished. Pump-probe experiment(s) stopped.")
         self.finished.emit()
@@ -457,7 +456,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def add_to_queue_pushed(self):
         pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.pulse_length.value())
         probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
-        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=500, lockin_freq=self.lockin_freq.value())
+        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=400, lockin_freq=self.lockin_freq.value())
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
         self.statusbar.showMessage(f"New experiment added to queue.")
         print(f"New experiment added to queue: {self.queue.data[-1]}")
