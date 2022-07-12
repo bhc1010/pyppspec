@@ -4,7 +4,7 @@ import time
 import socket
 import pyvisa
 from time import time as timer
-import pumpprobe
+import pumpProbe
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -528,16 +528,3 @@ class RHK:
         data = Socket.recv(BUFFER_SIZE)
     # def Spectra():
     #     pass
-
-
-def set_phase(phi=0):
-    awg.write(f'SOURce1:PHASe:ARB {phi}')
-
-def Disconnect_Lock_In():
-    if LockIn_Socket is not None:
-        LockIn_Socket.shutdown(2)
-        LockIn_Socket.close()
-
-def Disconnect_AWG():
-    if awg is not None:
-        awg.close()
