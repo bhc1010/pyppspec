@@ -1,4 +1,4 @@
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtWidgets, QtGui, QtCore
 
 class QNumericalLineEdit(QtWidgets.QLineEdit):
     def __init__(self, parent: QtWidgets.QWidget, validator:QtGui.QValidator):
@@ -38,3 +38,10 @@ class QDataTable(QtWidgets.QTableWidget):
             self.insertRow(row_idx)
         for col_idx, key in enumerate(row.__dict__.keys()):
             self.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(row.__dict__[key]))
+
+"""
+"""
+class QPlotter(QtCore.QObject):
+    _plot = QtCore.pyqtSignal(list)
+    def __init__():
+        super().__init__()
