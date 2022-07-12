@@ -1,5 +1,4 @@
 from PyQt5 import QtWidgets, QtGui
-from pumpprobe import PumpProbeExperiment
 
 class QNumericalLineEdit(QtWidgets.QLineEdit):
     def __init__(self, parent: QtWidgets.QWidget, validator:QtGui.QValidator):
