@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
-from pumpprobe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
+from pumpProbe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
 from device import LockIn, AWG, Result
 from QCustomWidgets import QDataTable, QDataTableRow, QNumericalLineEdit
 plt.ion()
