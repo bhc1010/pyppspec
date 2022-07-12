@@ -369,9 +369,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.add_to_queue.clicked.connect(self.add_to_queue_pushed)
         self.lockin_ip.textChanged.connect(lambda ip=self.lockin_ip.text(): self.set_lockin_ip(ip=ip))
         self.action_set_save_path.triggered.connect(self.set_save_path)
+        self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
 
     def set_lockin_ip(self, ip:str) -> None:
         self.PumpProbe.config.lockin_ip = ip
+        
+    def reset_triggered(self):
+        self.PumpProbe.lockin.reset()
+        self.PumpProbe.awg.reset()
 
     def update_lockin_status(self, msg: str) -> None:
         self.lockin_status.setText(msg)
