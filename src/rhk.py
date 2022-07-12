@@ -1,12 +1,7 @@
-# from asyncio import CancelledError
 import numpy as np
 import time
 import socket
-import pyvisa
 from time import time as timer
-import pumpProbe
-import matplotlib.pyplot as plt
-import pandas as pd
 
 class RHK:
     def __init__(self):

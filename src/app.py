@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
-from pumpProbe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
+from pump_probe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
 from device import LockIn, AWG, Result
-from QCustomWidgets import QDataTable, QDataTableRow, QNumericalLineEdit
+from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit
 plt.ion()
 
 class PumpProbeWorker(QtCore.QThread):
@@ -117,6 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.PumpProbe = PumpProbe(PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9))
         self.experiments = list()
+        self.save_path = None
         self.setupUi()
 
     def setupUi(self):
@@ -386,6 +387,9 @@ class MainWindow(QtWidgets.QMainWindow):
     Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
     """
     def start_queue_pushed(self):
+        if self.save_path == None:
+            self.save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', "/home", "")
+
         self.worker = PumpProbeWorker(self.PumpProbe, self.queue)
 
         self.worker.started.connect(lambda: self.report_progress("QThread started. Running pump-probe experiment(s)."))
