@@ -102,7 +102,7 @@ class AWG:
 
     def reset(self) -> Result:
         result = self.device.write('*RST')
-        time.sleep(8)
+        time.sleep(5)
         return result
 
     def wait(self) -> Result:
