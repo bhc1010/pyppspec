@@ -11,6 +11,7 @@ class PumpProbeWorker(QtCore.QThread):
     queue_signal = QtCore.pyqtSignal(QtGui.QColor)
     lockin_status = QtCore.pyqtSignal(str)
     awg_status = QtCore.pyqtSignal(str)
+    _plot = QtCore.pyqtSignal()
 
     def __init__(self, pump_probe:PumpProbe, queue: QDataTable) -> None:
         super().__init__(parent=None)
@@ -89,6 +90,8 @@ class PumpProbeWorker(QtCore.QThread):
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
             try:
+                self.progress.emit("Running pump-probe experiment.")
+                self._plot.emit()
                 volt_data, dt = self.pump_probe.run(exp=exp, repeat=self.repeat_arb)
             except Exception as e:
                 msg = f"[ERROR] {e}. "
@@ -106,6 +109,7 @@ class PumpProbeWorker(QtCore.QThread):
             # Remove experiment from queue data and top row
             del self.queue.data[0]
             self.queue.removeRow(0)
+            self.repeat_arb=True
         # Close thread
         self.progress.emit("QThread finished. Pump-probe experiment(s) stopped.")
         self.finished.emit()
@@ -384,6 +388,18 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"{msg}")
         self.statusbar.showMessage(msg)
 
+    def update_figure(self, _in: list) -> None:
+        dt, data = _in
+        self.line.set_data(dt, data)
+        plt.gca().relim()
+        plt.gca().autoscale_view()
+        # plt.show()
+
+    def mk_figure(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        self.line = ax.plot(list(), list())[0]
+
     """
     Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
     """
@@ -400,6 +416,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker.queue_signal.connect(self.update_queue_status)
         self.hook.connect(lambda: self.worker.stop_early())
 
+        # plotting
+        self.worker._plot.connect(self.mk_figure)
+        self.PumpProbe._plot.connect(self.update_figure)
+
         self.worker.start()
 
         self.queue_btn.setText("Stop queue")
@@ -407,6 +427,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue_btn.clicked.connect(self.stop_queue_pushed)
 
         self.worker.finished.connect(lambda: self.queue_btn.setText("Start queue"))
+        self.worker.finished.connect(lambda: self.queue_btn.setEnabled(True))
         self.worker.finished.connect(lambda: self.queue_btn.clicked.disconnect())
         self.worker.finished.connect(lambda: self.queue_btn.clicked.connect(self.start_queue_pushed))
 
@@ -416,6 +437,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def stop_queue_pushed(self):
         self.hook.emit()
         self.hook.disconnect()
+        self.queue_btn.setEnabled(False)
 
     """
     Returns a dict containing all relevant experimental information to be displayed in the queue.
@@ -435,7 +457,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def add_to_queue_pushed(self):
         pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.pulse_length.value())
         probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
-        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=400, lockin_freq=self.lockin_freq.value())
+        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=500, lockin_freq=self.lockin_freq.value())
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
         self.statusbar.showMessage(f"New experiment added to queue.")
         print(f"New experiment added to queue: {self.queue.data[-1]}")
