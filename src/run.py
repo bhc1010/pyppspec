@@ -1,4 +1,3 @@
-from os import listxattr
 import sys
 from app import MainWindow
 from PyQt5.QtWidgets import QApplication
