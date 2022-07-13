@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 class QNumericalLineEdit(QtWidgets.QLineEdit):
@@ -43,5 +44,30 @@ class QDataTable(QtWidgets.QTableWidget):
 """
 class QPlotter(QtCore.QObject):
     _plot = QtCore.pyqtSignal(list)
-    def __init__():
+    
+    def __init__(self):
         super().__init__()
+        self.xdata = list()
+        self.ydata = list()
+
+    def mk_figure(self):
+        self.clr()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        self.line = ax.plot(self.xdata, self.ydata)[0]
+
+    def update_figure(self, data:list = None):
+        if list:
+            self.add_data(data[0], data[1])
+        self.line.set_data(self.xdata, self.ydata)
+        ax = plt.gca()
+        ax.relim()
+        ax.autoscale_view()
+
+    def add_data(self, x:float, y:float):
+        self.xdata.append(x)
+        self.ydata.append(y)
+        
+    def clr(self):
+        self.xdata = list()
+        self.ydata = list()
