@@ -1,8 +1,15 @@
+import os
+import json
+
+import pandas as pd
 import matplotlib.pyplot as plt
+
 from PyQt5 import QtCore, QtGui, QtWidgets
-from pump_probe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
-from device import LockIn, AWG, Result
 from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
+from pump_probe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
+from device import LockIn, AWG, RHK_R9
+from datetime import datetime
+
 plt.ion()
 
 class PumpProbeWorker(QtCore.QThread):
@@ -11,6 +18,7 @@ class PumpProbeWorker(QtCore.QThread):
     _queue_signal = QtCore.pyqtSignal(QtGui.QColor)
     _lockin_status = QtCore.pyqtSignal(str)
     _awg_status = QtCore.pyqtSignal(str)
+    _stm_status = QtCore.pyqtSignal(str)
     _make_figure = QtCore.pyqtSignal()
 
     def __init__(self, pump_probe:PumpProbe, queue: QDataTable, plotter: QPlotter) -> None:
@@ -23,38 +31,52 @@ class PumpProbeWorker(QtCore.QThread):
 
     def stop_early(self):
         self._running_pp = False
+        
+    def init_stm(self) -> None:
+        if self.pump_probe.stm == None:
+            model =  self.pump_probe.config.stm_model
+            self._progress.emit(f"[{model}] Initializing")
+            self.pump_probe.rhk = RHK_R9(model=model)
 
-    def init_lockin(self):
+    def init_lockin(self) -> None:
         if self.pump_probe.lockin == None:
             self._progress.emit("[Lock-in] Initializing")
             self.pump_probe.lockin = LockIn(ip=self.pump_probe.config.lockin_ip, port=self.pump_probe.config.lockin_port)
 
-    def init_awg(self):
+    def init_awg(self) -> None:
         if self.pump_probe.awg == None:
             self._progress.emit("[AWG] Initializing")
             self.pump_probe.awg = AWG(id=self.pump_probe.config.awg_id)
-    
-    def connect_lockin(self) -> Result:
-        self._progress.emit("[Lock-in] Connecting...")
-        self._lockin_status.emit("Connecting...")
-        result = self.pump_probe.lockin.connect().expected("[Lock-in] Could not connect:")
-        self._progress.emit(f"[Lock-in] {result.msg}")
-        if result.err == True:
-            self._lockin_status.emit("Disconnected")
-        else:
-            self._lockin_status.emit("Connected")
-        return result
 
-    def connect_awg(self) -> Result:
-        self._progress.emit("[AWG] Connecting...")
-        self._awg_status.emit("Connecting...")
-        result = self.pump_probe.awg.connect().expected("[AWG] Could not connect:")
-        self._progress.emit(f"[AWG] {result.msg}")
-        if result.err == True:
-            self._awg_status.emit("Disconnected")
+    def connect_device(self, device, signal, name):
+        self._progress.emit(f"[{name}] Connecting...")
+        signal.emit("Connecting...")
+        result = device.connect().expected(f"[{name}] Could not connect:")
+        self._progress.emit(f"[{name}] {result.msg}")
+        if result.err:
+            signal.emit("Disconnected")
         else:
-            self._awg_status.emit("Connected")
+            signal.emit("Connected")
         return result
+    
+    def save_data(self, exp, data):
+        dt, volt_data = data
+        # Save measurement data
+        exp.name = str(datetime.now())
+        out = pd.DataFrame({'Voltage': volt_data, 'Time Delay': dt})
+        path = os.path.join(self.pump_probe.config.save_path, exp.name)
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        out.to_csv(os.path.join(path, exp.name), index=False)
+
+        # Save measurement figure
+        meta = exp.generate_meta(exp)
+        plt.savefig(f"{os.path.join(path, exp.name)}.png", metadata=meta)
+        
+        # Save RHK position info
+        with open(os.path.join(path,  "meta.toml"), 'w') as file:
+            out = exp.generate_toml(exp)
+            file.write(out)
 
     """
     Run pump probe experiment for each experiment in the queue until empty or 'Stop queue' button is pressed.
@@ -64,18 +86,16 @@ class PumpProbeWorker(QtCore.QThread):
         self.init_lockin()
         self.init_awg()
         ## Check if devices are connected
-        lockin_result = self.connect_lockin()
-        awg_result = self.connect_awg()
-
-        if lockin_result.err:
-            self._progress.emit("[ERROR] Lock-in did not connect. Please ensure Lock-in is able to communicate with local user.")
-            self._finished.emit()
-            return
-                    
-        if awg_result.err:
-            self._progress.emit("[ERROR] AWG did not connect. Please ensure AWG is able to communicate with local user.")
-            self._finished.emit()
-            return
+        lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
+        awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
+        stm_result = self.connect_device(self.pump_probe.stm, self._stm_status, self.pump_probe.config.stm_model)
+        
+        # Report any errors with connecting.
+        for name, result in zip(["STM", "Lock-in", "AWG"], [stm_result, lockin_result, awg_result]):
+            if result.err:
+                self._progress.emit(f"[ERROR] {name} did not connect. Please ensure {name} is able to communicate with local user.")
+                self._finished.emit()
+                return
 
         # Check if experiment queue is empty
         if self.queue.rowCount() == 0:
@@ -85,15 +105,22 @@ class PumpProbeWorker(QtCore.QThread):
 
         # Run pump-probe for each experiment in queue until queue is empty of 'Stop queue' button is pressed.
         self._running_pp = True
+        
         # While the queue is not empty and pump-probe is still set to run (running_pp is set to False by clicking 'Stop queue')
         while(len(self.queue.data) != 0 and self._running_pp):
             self._queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
+            
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
+            
+            # Make new figure 
+            self._make_figure.emit()
+            
+            # Get tip position
+            exp.stm_coords = self.pump_probe.stm.get_position()
             try:
                 self._progress.emit("Running pump-probe experiment.")
-                self._make_figure.emit()
-                volt_data, dt = self.pump_probe.run(exp=exp, repeat=self._repeat_arb, plotter=self.plotter)
+                dt, volt_data = self.pump_probe.run(exp=exp, repeat=self._repeat_arb, plotter=self.plotter)
             except Exception as e:
                 msg = f"[ERROR] {e}. "
                 if "'send'" in repr(e):
@@ -103,10 +130,13 @@ class PumpProbeWorker(QtCore.QThread):
                 self._progress.emit(msg)
                 self._queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
                 self._running_pp = False
-            # Save measurement data
+                self._finished.emit()
+                return
             
+            # Save data
+            self.save_data(exp, (dt, volt_data))
             # Check if next experiment in queue is a repeat arb
-
+            
             # Remove experiment from queue data and top row
             del self.queue.data[0]
             self.queue.removeRow(0)
@@ -119,11 +149,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        config = PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
+        self.setupUi()
+        
+        # Setup PumpProbeConfig
+        if os.path.isfile(".config.json"):
+            config = self.read_config()
+            self.report_progress("Pump-probe configuration imported from config.json. ")
+        else:
+            config = PumpProbeConfig(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
+        
         self.PumpProbe = PumpProbe(config)
         self.PumpProbe.plotter = QPlotter()
         self.experiments = list()
-        self.setupUi()
 
     def setupUi(self):
         self.setObjectName("MainWindow")
@@ -317,8 +354,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menu_file.addAction(self.action_reset_connected_devices)
         self.menubar.addAction(self.menu_file.menuAction())
 
-        self.init_connections()
         self.retranslateUi()
+        self.init_connections()
         QtCore.QMetaObject.connectSlotsByName(self)
 
     def retranslateUi(self):
@@ -373,8 +410,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
 
-    def set_lockin_ip(self, ip:str) -> None:
+    def read_config(self):
+        with open('.config.json') as json_file:
+            config = json.load(json_file)
+        return PumpProbeConfig(**config)
+
+    def update_config(self):
+        with open('.config.json', 'w') as json_file:
+            json.dump(self.PumpProbe.config.__dict__, json_file)
+
+    def set_lockin_ip(self, ip: str) -> None:
         self.PumpProbe.config.lockin_ip = ip
+        self.update_config()
         
     def reset_triggered(self):
         self.PumpProbe.lockin.reset()
@@ -399,8 +446,7 @@ class MainWindow(QtWidgets.QMainWindow):
     """
     def start_queue_pushed(self):
         while self.PumpProbe.config.save_path == "":
-            self.PumpProbe.config.save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
-
+            self.set_save_path()
         self.plotter = QPlotter()
         self.worker = PumpProbeWorker(self.PumpProbe, self.queue, self.plotter)
 
@@ -460,4 +506,5 @@ class MainWindow(QtWidgets.QMainWindow):
     def set_save_path(self):
         save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
         self.PumpProbe.config.save_path = save_path
+        self.update_config()
         self.report_progress(f"Save path set to {self.PumpProbe.config.save_path}")

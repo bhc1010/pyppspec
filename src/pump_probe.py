@@ -1,10 +1,8 @@
-import time
+import os, time
 import numpy as np
-import matplotlib.pyplot as plt
-from device import LockIn, AWG
+from device import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple
-from PyQt5.QtCore import pyqtSignal, QObject
 
 """
 Defines an immutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
@@ -17,21 +15,41 @@ class Pulse:
     time_spread: float
 
 """
-Defines an immutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
+Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
+    NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
 """
-@dataclass(frozen=True)
+@dataclass()
 class PumpProbeExperiment:
     pump: Pulse
     probe: Pulse
     phase_range: float
     samples: int
     lockin_freq: int
-
+    stm_coords: Vector2 = Vector2(0,0)
+    name: str = ""
+    
+    def generate_meta(self):
+        return {'Title': self.name,
+                'Author': os.environ.get('USERNAME'),
+                'Description': f"An STM pump-probe measurement. Settings: {repr(self)}",
+                'Creation Time': self.name,
+                'Software': "ppspectroscopy",
+                'Comment': ""}
+    
+    def generate_toml(self) -> str:
+        out =  f"[Date]\n{self.name}\n"
+        out += f"[Position]\nx: {self.stm_coords.x}\ny: {self.stm_coords.y}\n"
+        out += f"[Pump]\namp: {self.pump.amp}\nwidth: {self.pump.width}\nedge: {self.pump.edge}\n"
+        out += f"[Probe]\namp: {self.probe.amp}\nwidth: {self.probe.width}\nedge: {self.probe.edge}\n"
+        out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\nlock-in freq: {self.lockin_freq}\n"
+        return out
+    
 """
 Defines a mutable dataclass PumpProbeConfig to hold semi-constant (globally used for all experiments but can be mutated) pump-probe configuration data
 """
 @dataclass
 class PumpProbeConfig:
+    stm_model: str
     lockin_ip: str
     lockin_port: int
     lockin_freq: int
@@ -46,8 +64,10 @@ class PumpProbe():
     def __init__(self, config:PumpProbeConfig = None):
         super().__init__()
         self.config = config
-        self.lockin : LockIn = None
-        self.awg : AWG = None
+        self.stm: STM = None
+        self.lockin: LockIn = None
+        self.awg: AWG = None
+
 
     def init_lockin(self):
         if self.lockin != None:
@@ -76,7 +96,8 @@ class PumpProbe():
                         phase_range:float, samples:int, lockin_freq:int) -> PumpProbeExperiment:
         pump = Pulse(amp=pump_amp, width=pump_width, edge=pump_edge, time_spread=time_spread)
         probe = Pulse(amp=probe_amp, width=probe_width, edge=probe_edge, time_spread=time_spread)
-        return PumpProbeExperiment(pump=pump, probe=probe, phase_range=phase_range, samples=samples, lockin_freq=lockin_freq)
+        coords = self.stm.get_position()
+        return PumpProbeExperiment(pump=pump, probe=probe, phase_range=phase_range, samples=samples, lockin_freq=lockin_freq, stm_coords=coords)
 
     """
     Returns a list of waveform points for a pulse. Minimum rise time, minimum pulse width, sample rate, and minimum arb length are hard coded from KeySight 33600A specs.
@@ -168,4 +189,4 @@ class PumpProbe():
         # Close channel 1 on AWG
         self.awg.close_channel(1)
         
-        return (data, dt)
+        return (dt, data)
