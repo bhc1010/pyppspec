@@ -1,7 +1,11 @@
+from collections import namedtuple
 import time
 import socket
 import pyvisa
 import numpy as np
+from typing import NamedTuple
+
+Vector2 = namedtuple("Vector2", "x y")
 
 """
 Result class to deal with error handling of device connections
@@ -267,3 +271,98 @@ class AWG:
     def combine_channels(self, out:int, feed:int) -> None:
         self.device.write(f'SOURce{out}:COMBine:FEED CH{feed}')
         self.device.write('*WAI')
+
+
+
+"""
+Base STM class from which specific STM model classes inherit.
+*** Only RHK R9 implemented ***
+"""
+class STM:
+    def __init__(self, model:str, ip:str, port:int) -> None:
+        self.model = model
+        self.ip = ip
+        self.port = port
+        
+        self._socket = None 
+        self._buffer_size = 1024
+        
+    def connect(self) -> Result:
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self._socket.connect((self.ip, self.port))
+        except socket.error as e:
+            self.socket = None
+            return Result(msg=repr(e), err=True)
+        else:
+            return Result(msg="Connected", err=True)
+    
+    def on_close(self) -> None:
+        pass
+    
+    def set_bias(self) -> None:
+        pass
+    
+    def set_position(self) -> None:
+       pass 
+    
+    """
+    Returns tip position in scan space as a vector
+    """
+    def get_position(self) -> Vector2:
+        pass
+
+"""
+Implementation of RHK R9. Inherits from STM. 
+NOTE: Not sure which variables/methods are specifc to RHK R9. Most implementation is done spefically in RHK_R9 for now.
+"""
+class RHK_R9(STM):
+    def __init__(self, ip: str = '127.0.0.1', port:int = 12600):
+        super().__init__("RHK R9", ip, port)
+        self.outgoingQueue = None
+        self.cancel = False
+        self.courseX = 0
+        self.courseY = 0
+
+    def on_close(self):
+        if self._socket is not None:
+            self._socket.shutdown(2)
+            self._socket.close()
+            
+    """
+    Sets STM tip control mode to tip_mode. (e.g. set_tip_control("freeze"), set_tip_control("unlimit"))
+    """
+    def set_tip_control(self, tip_mode:str):
+        tip_mode = tip_mode.title()
+        cmd = f'SetHWParameter, Z PI Controller 1, Tip Control, {tip_mode}\n'
+        self._socket.send(cmd.encode())
+        self._socket.recv(self._buffer_size)
+        
+    """
+    Sets STM bias to bias
+    """
+    def set_bias(self, bias: float):
+        cmd = f'SetSWParameter, STM Bias, Value, {bias}\n'
+        self._socket.send(cmd.encode())
+        self._socket.recv(self._buffer_size)
+        time.sleep(3)
+        try:
+            self._socket.recv(self._buffer_size)
+            self._socket.recv(self._buffer_size)
+        except Exception as e:
+            print(f"Got exception: {e}")
+        
+    """
+    Returns the current tip position as a Vector2.
+    TODO: What are the offset values relative to? The center of the scan window? global scan space?
+    """
+    def get_position(self) -> Vector2:
+        cmd = 'GetSWParameter, Scan Area Window, X Offset'
+        self._socket.send(cmd.encode())
+        x_offset = self._socket.recv(self._buffer_size)
+        
+        cmd = 'GetSWParameter, Scan Area Window, Y Offset'
+        self._socket.send(cmd.encode())
+        y_offset = self._socket.recv(self._buffer_size)
+        
+        return Vector2(x=x_offset, y=y_offset)
