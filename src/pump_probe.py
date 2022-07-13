@@ -42,9 +42,7 @@ class PumpProbeConfig:
 """
 Defines a PumpProbe class that connects and holds references to devices, experimental settings, and runs pump-probe experiments.
 """
-class PumpProbe(QObject):
-    _plot = pyqtSignal(list)
-
+class PumpProbe():
     def __init__(self, config:PumpProbeConfig = None):
         super().__init__()
         self.config = config
@@ -114,7 +112,7 @@ class PumpProbe(QObject):
     Runs a pump-probe experiment by sweeping the phase of one of the pulses.
         exp : PumpProbeExperiment to run
     """
-    def run(self, exp:PumpProbeExperiment, repeat:bool) -> Tuple[list, list]:
+    def run(self, exp:PumpProbeExperiment, repeat:bool, plotter=None) -> Tuple[list, list]:
         time_spread = exp.probe.time_spread
         phase_range = exp.phase_range
         sweep_channel = 1
@@ -141,11 +139,12 @@ class PumpProbe(QObject):
 
         data = list()
         dt = list()
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # line = ax.plot(dt, data)[0]
-        # plt.show()
+
+        # Open channel 1 on AWG
         self.awg.open_channel(1)
+        
+        # For each phase in phase_range, set phase on AWG sweep channel and measure output from lockin. If a plotter object is given to
+        #   PumpProbe.run() then emit the latest data.
         for i in range(len(phase_range)):
             dt.append(phase_range[i] * (time_spread / 360) * sample_rate)
             self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.")
@@ -162,23 +161,11 @@ class PumpProbe(QObject):
             X = X.split()[0]
             X = float(X)
             data.append(X)
-            self._plot.emit([dt, data])
-            # time.sleep(0.2)
-            # line.set_data(dt, data)
-            # ax.relim()
-            # ax.autoscale_view()
-            # fig.canvas.draw_idle()
-
-        # phase_range = np.linspace(-180, 180, 400)
-        # for phase in phase_range:
-        #     x.append(phase)
-        #     y.append(np.sin(np.deg2rad(phase)))
-        #     line.set_data(x, y)
-        #     ax.relim()
-        #     ax.autoscale_view()
-        #     fig.canvas.draw_idle()
-        #     fig.canvas.flush_events()
-
-        # plt.show()
+            # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
+            if plotter and plotter._plot:
+                plotter._plot.emit([dt[-1], data[-1]])
+        
+        # Close channel 1 on AWG
         self.awg.close_channel(1)
+        
         return (data, dt)
