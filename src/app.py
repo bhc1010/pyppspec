@@ -2,57 +2,58 @@ import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pump_probe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
 from device import LockIn, AWG, Result
-from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit
+from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
 plt.ion()
 
 class PumpProbeWorker(QtCore.QThread):
-    progress = QtCore.pyqtSignal(str)
-    finished = QtCore.pyqtSignal()
-    queue_signal = QtCore.pyqtSignal(QtGui.QColor)
-    lockin_status = QtCore.pyqtSignal(str)
-    awg_status = QtCore.pyqtSignal(str)
-    _plot = QtCore.pyqtSignal()
+    _progress = QtCore.pyqtSignal(str)
+    _finished = QtCore.pyqtSignal()
+    _queue_signal = QtCore.pyqtSignal(QtGui.QColor)
+    _lockin_status = QtCore.pyqtSignal(str)
+    _awg_status = QtCore.pyqtSignal(str)
+    _make_figure = QtCore.pyqtSignal()
 
-    def __init__(self, pump_probe:PumpProbe, queue: QDataTable) -> None:
+    def __init__(self, pump_probe:PumpProbe, queue: QDataTable, plotter: QPlotter) -> None:
         super().__init__(parent=None)
         self.pump_probe = pump_probe
         self.queue = queue
-        self.running_pp = False
-        self.repeat_arb = False
+        self.plotter = plotter
+        self._running_pp = False
+        self._repeat_arb = False
 
     def stop_early(self):
-        self.running_pp = False
+        self._running_pp = False
 
     def init_lockin(self):
         if self.pump_probe.lockin == None:
-            self.progress.emit("[Lock-in] Initializing")
+            self._progress.emit("[Lock-in] Initializing")
             self.pump_probe.lockin = LockIn(ip=self.pump_probe.config.lockin_ip, port=self.pump_probe.config.lockin_port)
 
     def init_awg(self):
         if self.pump_probe.awg == None:
-            self.progress.emit("[AWG] Initializing")
+            self._progress.emit("[AWG] Initializing")
             self.pump_probe.awg = AWG(id=self.pump_probe.config.awg_id)
     
     def connect_lockin(self) -> Result:
-        self.progress.emit("[Lock-in] Connecting...")
-        self.lockin_status.emit("Connecting...")
+        self._progress.emit("[Lock-in] Connecting...")
+        self._lockin_status.emit("Connecting...")
         result = self.pump_probe.lockin.connect().expected("[Lock-in] Could not connect:")
-        self.progress.emit(f"[Lock-in] {result.msg}")
+        self._progress.emit(f"[Lock-in] {result.msg}")
         if result.err == True:
-            self.lockin_status.emit("Disconnected")
+            self._lockin_status.emit("Disconnected")
         else:
-            self.lockin_status.emit("Connected")
+            self._lockin_status.emit("Connected")
         return result
 
     def connect_awg(self) -> Result:
-        self.progress.emit("[AWG] Connecting...")
-        self.awg_status.emit("Connecting...")
+        self._progress.emit("[AWG] Connecting...")
+        self._awg_status.emit("Connecting...")
         result = self.pump_probe.awg.connect().expected("[AWG] Could not connect:")
-        self.progress.emit(f"[AWG] {result.msg}")
+        self._progress.emit(f"[AWG] {result.msg}")
         if result.err == True:
-            self.awg_status.emit("Disconnected")
+            self._awg_status.emit("Disconnected")
         else:
-            self.awg_status.emit("Connected")
+            self._awg_status.emit("Connected")
         return result
 
     """
@@ -67,41 +68,41 @@ class PumpProbeWorker(QtCore.QThread):
         awg_result = self.connect_awg()
 
         if lockin_result.err:
-            self.progress.emit("[ERROR] Lock-in did not connect. Please ensure Lock-in is able to communicate with local user.")
-            self.finished.emit()
+            self._progress.emit("[ERROR] Lock-in did not connect. Please ensure Lock-in is able to communicate with local user.")
+            self._finished.emit()
             return
                     
         if awg_result.err:
-            self.progress.emit("[ERROR] AWG did not connect. Please ensure AWG is able to communicate with local user.")
-            self.finished.emit()
+            self._progress.emit("[ERROR] AWG did not connect. Please ensure AWG is able to communicate with local user.")
+            self._finished.emit()
             return
 
         # Check if experiment queue is empty
         if self.queue.rowCount() == 0:
-            self.progress.emit("[ERROR] Experiment queue is empty. Please fill queue with at least one experiment.")
-            self.finished.emit()
+            self._progress.emit("[ERROR] Experiment queue is empty. Please fill queue with at least one experiment.")
+            self._finished.emit()
             return
 
         # Run pump-probe for each experiment in queue until queue is empty of 'Stop queue' button is pressed.
-        self.running_pp = True
+        self._running_pp = True
         # While the queue is not empty and pump-probe is still set to run (running_pp is set to False by clicking 'Stop queue')
-        while(len(self.queue.data) != 0 and self.running_pp):
-            self.queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
+        while(len(self.queue.data) != 0 and self._running_pp):
+            self._queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
             try:
-                self.progress.emit("Running pump-probe experiment.")
-                self._plot.emit()
-                volt_data, dt = self.pump_probe.run(exp=exp, repeat=self.repeat_arb)
+                self._progress.emit("Running pump-probe experiment.")
+                self._make_figure.emit()
+                volt_data, dt = self.pump_probe.run(exp=exp, repeat=self._repeat_arb, plotter=self.plotter)
             except Exception as e:
                 msg = f"[ERROR] {e}. "
                 if "'send'" in repr(e):
                     msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
                 elif "'write'" in repr(e):
                     msg += " 'write' is an AWG method. Is the AWG connected properly?"
-                self.progress.emit(msg)
-                self.queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
-                self.running_pp = False
+                self._progress.emit(msg)
+                self._queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
+                self._running_pp = False
             # Save measurement data
             
             # Check if next experiment in queue is a repeat arb
@@ -110,16 +111,17 @@ class PumpProbeWorker(QtCore.QThread):
             del self.queue.data[0]
             self.queue.removeRow(0)
         # Close thread
-        self.progress.emit("QThread finished. Pump-probe experiment(s) stopped.")
-        self.finished.emit()
+        self._progress.emit("QThread finished. Pump-probe experiment(s) stopped.")
+        self._finished.emit()
 
 class MainWindow(QtWidgets.QMainWindow):
-    hook = QtCore.pyqtSignal()
+    _hook = QtCore.pyqtSignal()
 
     def __init__(self):
         super().__init__()
         config = PumpProbeConfig(lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
         self.PumpProbe = PumpProbe(config)
+        self.PumpProbe.plotter = QPlotter()
         self.experiments = list()
         self.setupUi()
 
@@ -392,18 +394,6 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"{msg}")
         self.statusbar.showMessage(msg)
 
-    def update_figure(self, _in: list) -> None:
-        dt, data = _in
-        self.line.set_data(dt, data)
-        plt.gca().relim()
-        plt.gca().autoscale_view()
-        # plt.show()
-
-    def mk_figure(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        self.line = ax.plot(list(), list())[0]
-
     """
     Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
     """
@@ -411,18 +401,19 @@ class MainWindow(QtWidgets.QMainWindow):
         while self.PumpProbe.config.save_path == "":
             self.PumpProbe.config.save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
 
-        self.worker = PumpProbeWorker(self.PumpProbe, self.queue)
+        self.plotter = QPlotter()
+        self.worker = PumpProbeWorker(self.PumpProbe, self.queue, self.plotter)
 
         self.worker.started.connect(lambda: self.report_progress("QThread started. Running pump-probe experiment(s)."))
-        self.worker.progress.connect(self.report_progress)
-        self.worker.lockin_status.connect(self.update_lockin_status)
-        self.worker.awg_status.connect(self.update_awg_status)
-        self.worker.queue_signal.connect(self.update_queue_status)
-        self.hook.connect(lambda: self.worker.stop_early())
+        self.worker._progress.connect(self.report_progress)
+        self.worker._lockin_status.connect(self.update_lockin_status)
+        self.worker._awg_status.connect(self.update_awg_status)
+        self.worker._queue_signal.connect(self.update_queue_status)
+        self._hook.connect(lambda: self.worker.stop_early())
 
         # plotting
-        self.worker._plot.connect(self.mk_figure)
-        self.PumpProbe._plot.connect(self.update_figure)
+        self.worker._make_figure.connect(self.plotter.mk_figure)
+        self.plotter._plot.connect(self.plotter.update_figure)
 
         self.worker.start()
 
@@ -430,17 +421,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue_btn.clicked.disconnect()
         self.queue_btn.clicked.connect(self.stop_queue_pushed)
 
-        self.worker.finished.connect(lambda: self.queue_btn.setText("Start queue"))
-        self.worker.finished.connect(lambda: self.queue_btn.setEnabled(True))
-        self.worker.finished.connect(lambda: self.queue_btn.clicked.disconnect())
-        self.worker.finished.connect(lambda: self.queue_btn.clicked.connect(self.start_queue_pushed))
+        self.worker._finished.connect(lambda: self.queue_btn.setText("Start queue"))
+        self.worker._finished.connect(lambda: self.queue_btn.setEnabled(True))
+        self.worker._finished.connect(lambda: self.queue_btn.clicked.disconnect())
+        self.worker._finished.connect(lambda: self.queue_btn.clicked.connect(self.start_queue_pushed))
 
     """
     Called when 'Stop queue' button is pushed. Emits hook signal to stop queue after current experiment is finished.
     """
     def stop_queue_pushed(self):
-        self.hook.emit()
-        self.hook.disconnect()
+        self._hook.emit()
+        self._hook.disconnect()
         self.queue_btn.setEnabled(False)
 
     """
