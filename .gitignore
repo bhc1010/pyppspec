@@ -162,3 +162,5 @@ cython_debug/
 # JSON
 .config.json
 
+# Python
+rhk.py
