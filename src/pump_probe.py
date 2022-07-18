@@ -161,6 +161,13 @@ class PumpProbe():
         data = list()
         dt = list()
 
+        # Set STM tip to unlimit
+        self.stm.set_tip_control("unlimit")
+        
+        # Set STM bias to minimum
+        """TODO: have bias a setting in the experiment?"""
+        self.stm.set_bias(0.0)
+
         # Open channel 1 on AWG
         self.awg.open_channel(1)
         
