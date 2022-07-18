@@ -19,7 +19,7 @@ class PumpProbeWorker(QtCore.QThread):
     _lockin_status = QtCore.pyqtSignal(str)
     _awg_status = QtCore.pyqtSignal(str)
     _stm_status = QtCore.pyqtSignal(str)
-    _make_figure = QtCore.pyqtSignal()
+    _make_figure = QtCore.pyqtSignal(str)
 
     def __init__(self, pump_probe:PumpProbe, queue: QDataTable, plotter: QPlotter) -> None:
         super().__init__(parent=None)
@@ -62,7 +62,6 @@ class PumpProbeWorker(QtCore.QThread):
     def save_data(self, exp, data):
         dt, volt_data = data
         # Save measurement data
-        exp.name = str(datetime.now())
         out = pd.DataFrame({'Voltage': volt_data, 'Time Delay': dt})
         path = os.path.join(self.pump_probe.config.save_path, exp.name)
         if not os.path.isdir(path):
@@ -70,13 +69,13 @@ class PumpProbeWorker(QtCore.QThread):
         out.to_csv(os.path.join(path, exp.name), index=False)
 
         # Save measurement figure
-        meta = exp.generate_meta(exp)
+        meta = exp.generate_meta()
         plt.savefig(f"{os.path.join(path, exp.name)}.png", metadata=meta)
         
         # Save RHK position info
         with open(os.path.join(path,  "meta.toml"), 'w') as file:
-            out = exp.generate_toml(exp)
-            file.write(out)
+            toml = exp.generate_toml()
+            file.write(toml)
 
     """
     Run pump probe experiment for each experiment in the queue until empty or 'Stop queue' button is pressed.
@@ -112,9 +111,10 @@ class PumpProbeWorker(QtCore.QThread):
             
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
-            
+            exp.name = str(datetime.now())
+
             # Make new figure 
-            self._make_figure.emit()
+            self._make_figure.emit(exp.name)
             
             # Get tip position
             exp.stm_coords = self.pump_probe.stm.get_position()
@@ -133,6 +133,8 @@ class PumpProbeWorker(QtCore.QThread):
                 self._finished.emit()
                 return
             
+            # Add zero line to plot
+            plt.axvline(0, color = 'k', linestyle='--')
             # Save data
             self.save_data(exp, (dt, volt_data))
             # Check if next experiment in queue is a repeat arb

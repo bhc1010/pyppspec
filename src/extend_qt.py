@@ -50,14 +50,20 @@ class QPlotter(QtCore.QObject):
         self.xdata = list()
         self.ydata = list()
 
-    def mk_figure(self):
+    def mk_figure(self, name: str):
         self.clr()
         fig = plt.figure()
         ax = fig.add_subplot(111)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        plt.title(name)
+        plt.xlabel(r"Time delay, $\Delta t$ (ns)")
+        plt.ylabel(r"Voltage (V)")
         self.line = ax.plot(self.xdata, self.ydata)[0]
 
     def update_figure(self, data:list = None):
-        if list:
+        if data:
             self.add_data(data[0], data[1])
         self.line.set_data(self.xdata, self.ydata)
         ax = plt.gca()

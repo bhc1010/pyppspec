@@ -167,7 +167,9 @@ class PumpProbe():
         # For each phase in phase_range, set phase on AWG sweep channel and measure output from lockin. If a plotter object is given to
         #   PumpProbe.run() then emit the latest data.
         for i in range(len(phase_range)):
-            dt.append(phase_range[i] * (time_spread / 360) * sample_rate)
+            t = phase_range[i] * (time_spread / 360)
+            offset = 2 * exp.pump.edge + exp.pump.width
+            dt.append((t - offset) * sample_rate)
             self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.")
             self.awg.wait().expected("AWG not waiting to set phase.")
             if i == 0:
