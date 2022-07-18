@@ -3,7 +3,6 @@ import time
 import socket
 import pyvisa
 import numpy as np
-from typing import NamedTuple
 
 Vector2 = namedtuple("Vector2", "x y")
 
