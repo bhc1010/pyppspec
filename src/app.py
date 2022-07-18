@@ -36,7 +36,7 @@ class PumpProbeWorker(QtCore.QThread):
         if self.pump_probe.stm == None:
             model =  self.pump_probe.config.stm_model
             self._progress.emit(f"[{model}] Initializing")
-            self.pump_probe.rhk = RHK_R9(model=model)
+            self.pump_probe.stm = RHK_R9()
 
     def init_lockin(self) -> None:
         if self.pump_probe.lockin == None:
@@ -467,7 +467,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker._progress.connect(self.report_progress)
         self.worker._lockin_status.connect(self.update_lockin_status)
         self.worker._awg_status.connect(self.update_awg_status)
-        self.worder._stm_status.connect(self.update_stm_status)
+        self.worker._stm_status.connect(self.update_stm_status)
         self.worker._queue_signal.connect(self.update_queue_status)
         self._hook.connect(lambda: self.worker.stop_early())
 
