@@ -23,9 +23,11 @@ class QDataTableRow():
         self.__dict__.update(kwargs)
 
 class QDataTable(QtWidgets.QTableWidget):
-    def __init__(self, parent: QtWidgets.QWidget = None):
+    def __init__(self, parent: QtWidgets.QWidget = None, read_only: bool = True):
         super().__init__(parent)
         self.data = list()
+        if read_only:
+            self.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
 
     def add_item(self, row: QDataTableRow, data=None):
         # if no optional data is given, then let new data be QDataTableRow dict 
