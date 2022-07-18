@@ -84,6 +84,7 @@ class PumpProbeWorker(QtCore.QThread):
         # Check if devices are initialized
         self.init_lockin()
         self.init_awg()
+        self.init_stm()
         ## Check if devices are connected
         lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
         awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
@@ -156,13 +157,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Setup PumpProbeConfig
         if os.path.isfile(".config.json"):
             config = self.read_config()
-            self.report_progress("Pump-probe configuration imported from config.json. ")
+            self.report_progress("Pump-probe configuration imported from config.json. Configuration can be edited from file menu or by directly editing JSON file.")
         else:
             config = PumpProbeConfig(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
         
         self.PumpProbe = PumpProbe(config)
         self.PumpProbe.plotter = QPlotter()
         self.experiments = list()
+        
+        self.retranslateUi()
 
     def setupUi(self):
         self.setObjectName("MainWindow")
@@ -276,7 +279,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Layout for other settings
         self.etc_layout = QtWidgets.QWidget(self.centralwidget)
-        self.etc_layout.setGeometry(QtCore.QRect(20, 290, 231, 134))
+        self.etc_layout.setGeometry(QtCore.QRect(20, 290, 231, 150))
         self.etc_layout.setObjectName("etc_layout")
         self.etc_layout = QtWidgets.QFormLayout(self.etc_layout)
         self.etc_layout.setContentsMargins(0, 0, 0, 0)
@@ -310,9 +313,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lockin_status_label = QtWidgets.QLabel(self)
         self.lockin_status_label.setObjectName("lockin_status_label")
         self.etc_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.lockin_status_label)
-        self.lockin_status = QtWidgets.QLineEdit(self)
-        self.lockin_status.setFrame(False)
-        self.lockin_status.setStyleSheet("background : transparent")
+        self.lockin_status = QtWidgets.QLabel(self)
         self.lockin_status.setObjectName("lockin_status")
         self.etc_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.lockin_status)
 
@@ -320,11 +321,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.awg_status_label = QtWidgets.QLabel(self)
         self.awg_status_label.setObjectName("awg_status_label")
         self.etc_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.awg_status_label)
-        self.awg_status = QtWidgets.QLineEdit(self)
-        self.awg_status.setFrame(False)
-        self.awg_status.setStyleSheet("background : transparent")
+        self.awg_status = QtWidgets.QLabel(self)
         self.awg_status.setObjectName("awg_status")
         self.etc_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.awg_status)
+        
+        # STM connection feedback
+        self.stm_status_label = QtWidgets.QLabel(self)
+        self.stm_status_label.setObjectName("stm_status_label")
+        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.stm_status_label)
+        self.stm_status = QtWidgets.QLabel(self)
+        self.stm_status.setObjectName("stm_status")
+        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.stm_status)
 
         # Set central widget
         self.setCentralWidget(self.centralwidget)
@@ -356,7 +363,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menu_file.addAction(self.action_reset_connected_devices)
         self.menubar.addAction(self.menu_file.menuAction())
 
-        self.retranslateUi()
         self.init_connections()
         QtCore.QMetaObject.connectSlotsByName(self)
 
@@ -401,6 +407,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lockin_status.setText("Disconnected")
         self.awg_status_label.setText("AWG status: ")
         self.awg_status.setText("Disconnected")
+        self.stm_status_label.setText(f"{self.PumpProbe.config.stm_model} status: ")
+        self.stm_status.setText("Disconnected")
         self.menu_file.setTitle("File")
         self.action_set_save_path.setText("Set save path")
         self.action_reset_connected_devices.setText("Reset connected devices")
@@ -434,6 +442,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_awg_status(self, msg: str) -> None:
         self.awg_status.setText(msg)
+        
+    def update_stm_status(self, msg: str) -> None:
+        self.stm_status.setText(msg)
 
     def update_queue_status(self, color: QtGui.QColor) -> None:
         for cell in range(self.queue.columnCount()):
@@ -456,6 +467,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker._progress.connect(self.report_progress)
         self.worker._lockin_status.connect(self.update_lockin_status)
         self.worker._awg_status.connect(self.update_awg_status)
+        self.worder._stm_status.connect(self.update_stm_status)
         self.worker._queue_signal.connect(self.update_queue_status)
         self._hook.connect(lambda: self.worker.stop_early())
 
