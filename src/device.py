@@ -345,12 +345,6 @@ class RHK_R9(STM):
         cmd = f'SetSWParameter, STM Bias, Value, {bias}\n'
         self._socket.send(cmd.encode())
         self._socket.recv(self._buffer_size)
-        time.sleep(3)
-        try:
-            self._socket.recv(self._buffer_size)
-            self._socket.recv(self._buffer_size)
-        except Exception as e:
-            print(f"Got exception: {e}")
         
     """
     Returns the current tip position as a Vector2.
