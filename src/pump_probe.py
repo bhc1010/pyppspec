@@ -1,6 +1,6 @@
 import os, time
 import numpy as np
-from device import STM, LockIn, AWG, Vector2
+from devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple
 

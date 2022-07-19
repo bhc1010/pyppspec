@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
 from pump_probe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
-from device import LockIn, AWG, RHK_R9
+from devices import LockIn, AWG, RHK_R9
 from datetime import datetime
 
 plt.ion()
