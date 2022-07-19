@@ -69,30 +69,6 @@ class PumpProbe():
         self.lockin: LockIn = None
         self.awg: AWG = None
 
-
-    def init_lockin(self):
-        if self.lockin != None:
-            self.lockin.send('IE 2'.encode()).expected(f"Lockin reference mode not set.")  #set reference mode to external front panel
-            time.sleep(0.2)
-            self.lockin.send('IMODE 0'.encode()).expected("Lockin current mode not set.")  #current mode off-input voltage only
-            time.sleep(0.2)
-            self.lockin.send('VMODE 1'.encode()).expected("Lockin input not set.")  #A input only
-            time.sleep(0.2)
-            self.lockin.send('SEN 20'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
-            time.sleep(0.2)
-            self.lockin.send('ACGAIN 5'.encode()).expected("Lockin gain not set.")  #set gain, 6 = 36 dB. dB = 6 * n
-            time.sleep(0.2)
-            # self.lockin.send('AUTOMATIC 0'.encode())  #set AC gain to automatic control
-            self.lockin.send('AQN'.encode()).expected("Lockin auto-phase not set.")  #auto-phase
-            time.sleep(0.2)
-            # self.lockin.send('TC 10'.encode())  #set filter time constant control to 20 ms
-            # self.lockin.send('FLOAT 1'.encode())  #'float input connector shell using 1kOhm to ground' need to read more
-            # time.sleep(0.1)
-            self.lockin.send('LF 0'.encode()).expected("Lockin line frequency rejection filter not turned off")  #'turn off line frequency rejection filter
-            time.sleep(0.2)
-
-            self.lockin.reset()
-
     def create_experiment(self, time_spread: float, pump_amp: float, pump_width:float, pump_edge:float, probe_amp:float, probe_width:float, probe_edge:float, 
                         phase_range:float, samples:int, lockin_freq:int) -> PumpProbeExperiment:
         pump = Pulse(amp=pump_amp, width=pump_width, edge=pump_edge, time_spread=time_spread)
@@ -144,6 +120,7 @@ class PumpProbe():
             # Reset both devices
             self.awg.reset()
             self.lockin.reset()
+            self.lockin.default()
             # Create arb for each pulse
             pump_arb: list = self.create_arb(exp.pump)
             probe_arb: list = self.create_arb(exp.probe)
