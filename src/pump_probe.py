@@ -55,8 +55,8 @@ class PumpProbeConfig:
     lockin_freq: int # units = Hertz
     awg_id: str
     sample_rate: float
-    save_path: str
     default_bias: float = 0.2 # units = Volts
+    save_path: str = ""
 
 """
 Defines a PumpProbe class that connects and holds references to devices, experimental settings, and runs pump-probe experiments.
