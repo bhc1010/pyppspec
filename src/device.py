@@ -68,6 +68,27 @@ class LockIn:
         result = self.socket.send('*CLS'.encode())
         time.sleep(3)
         return result
+    
+    def default(self):
+        if self.lockin != None:
+            self.lockin.send('IE 2'.encode()).expected(f"Lockin reference mode not set.")  #set reference mode to external front panel
+            time.sleep(0.2)
+            self.lockin.send('IMODE 0'.encode()).expected("Lockin current mode not set.")  #current mode off-input voltage only
+            time.sleep(0.2)
+            self.lockin.send('VMODE 1'.encode()).expected("Lockin input not set.")  #A input only
+            time.sleep(0.2)
+            self.lockin.send('SEN 20'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
+            time.sleep(0.2)
+            self.lockin.send('ACGAIN 5'.encode()).expected("Lockin gain not set.")  #set gain, 6 = 36 dB. dB = 6 * n
+            time.sleep(0.2)
+            self.lockin.send('AUTOMATIC 0'.encode())  #set AC gain to automatic control
+            self.lockin.send('AQN'.encode()).expected("Lockin auto-phase not set.")  #auto-phase
+            time.sleep(0.2)
+            self.lockin.send('TC 10'.encode())  #set filter time constant control to 20 ms
+            self.lockin.send('FLOAT 1'.encode())  #'float input connector shell using 1kOhm to ground' need to read more
+            time.sleep(0.1)
+            self.lockin.send('LF 0'.encode()).expected("Lockin line frequency rejection filter not turned off")  #'turn off line frequency rejection filter
+            time.sleep(0.2)
 
 """
 Define AWG class to handle all communication with arbitrary waveform generator.
