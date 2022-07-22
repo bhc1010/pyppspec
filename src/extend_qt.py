@@ -1,4 +1,8 @@
+import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams['toolbar'] = 'toolmanager'
+
+from matplotlib.backend_tools import ToolBase
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 class QNumericalLineEdit(QtWidgets.QLineEdit):
@@ -43,6 +47,52 @@ class QDataTable(QtWidgets.QTableWidget):
             self.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(row.__dict__[key]))
 
 """
+
+"""
+class GenerateDerivativePlotButton(ToolBase):
+    description = 'Generate derivative plot'
+        
+    def trigger(self, *args, **kwargs):
+        self.generate_derivative()
+    
+    def generate_derivative(self: ToolBase):
+        fig = self.figure
+        data = fig.axes[0].lines[0].get_data()
+        time = np.array(data[0])
+        voltage = np.array(data[1])
+        
+        zero = fig.axes[0].lines[1].get_data()[0][0]
+        
+        # Replot measured data
+        plt.clf()
+        ax1 = fig.add_subplot(211)
+        ax1.plot(time, voltage)
+        plt.title("Pump-probe Spectroscopy")
+        plt.tick_params(axis='x',          # changes apply to the x-axis
+                        which='both',      # both major and minor ticks are affected
+                        bottom=False,      # ticks along the bottom edge are off
+                        top=False,         # ticks along the top edge are off
+                        labelbottom=False)
+        plt.ylabel(r"Voltage (V)")
+        ax1.axvline(zero, color='r', linestyle='--')
+        plt.grid(True)
+        
+        # Calculate derivative
+        dVdt = np.diff(voltage, axis=0) / np.diff(time)
+        
+        # Plot derivative data
+        ax2 = fig.add_subplot(212, sharex=ax1)
+        ax2.plot(time[0:-1], dVdt, color='g')
+        plt.title("Pump-probe dV/dt")
+        plt.xlabel(r"Time delay, $\Delta t$ (ns)")
+        plt.ylabel(r"dV/dt (V/ns)")
+        ax2.axvline(zero, color='r', linestyle='--')
+        plt.grid(True)
+        plt.draw()
+        
+
+"""
+
 """
 class QPlotter(QtCore.QObject):
     _plot = QtCore.pyqtSignal(list)
@@ -55,13 +105,17 @@ class QPlotter(QtCore.QObject):
     def mk_figure(self, name: str):
         self.clr()
         fig = plt.figure()
+        
+        # Add custom tools to figure
+        # TODO: Make button unenabled until measurement is completely taken? Can't add tool after plots are made.
+        fig.canvas.manager.toolmanager.add_tool('Estimate Derivative', GenerateDerivativePlotButton)
+        fig.canvas.manager.toolbar.add_tool('Estimate Derivative', 'custom')
+        
         ax = fig.add_subplot(111)
-        ax.spines["right"].set_visible(False)
-        ax.spines["left"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        plt.title(name)
+        plt.title("Pump-probe Spectroscopy")
         plt.xlabel(r"Time delay, $\Delta t$ (ns)")
         plt.ylabel(r"Voltage (V)")
+        plt.grid(True)
         self.line = ax.plot(self.xdata, self.ydata)[0]
 
     def update_figure(self, data:list = None):
