@@ -145,6 +145,7 @@ class PumpProbe():
         
         # Set STM bias to minimum
         """TODO: have bias a setting in the experiment?"""
+        prev_bias = self.stm.get_bias()
         self.stm.set_bias(0.01)
         time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
 
@@ -177,11 +178,13 @@ class PumpProbe():
         
         # Close channel 1 on AWG
         self.awg.close_channel(1)
+        time.sleep(1)
         
         # Set bias to default
-        self.stm.set_bias(self.config.default_bias)
+        self.stm.set_bias(prev_bias)
         
         # Set tip to unlimit
-        self.stm.set_tip_control("unlimit")
+        # NOTE: Commenting out so that the tip height is constant across runs. Tip must be manually put back into unlimit mode
+        # self.stm.set_tip_control("unlimit")
         
         return (dt, data)
