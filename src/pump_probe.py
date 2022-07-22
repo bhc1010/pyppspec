@@ -110,13 +110,13 @@ class PumpProbe():
     Runs a pump-probe experiment by sweeping the phase of one of the pulses.
         exp : PumpProbeExperiment to run
     """
-    def run(self, exp:PumpProbeExperiment, repeat:bool, plotter=None) -> Tuple[list, list]:
+    def run(self, exp:PumpProbeExperiment, new_arb:bool, plotter=None) -> Tuple[list, list]:
         time_spread = exp.probe.time_spread
         phase_range = exp.phase_range
         sweep_channel = 1
         sample_rate = self.config.sample_rate
 
-        if not repeat:
+        if new_arb:
             # Reset both devices
             self.awg.reset()
             self.lockin.reset()
@@ -133,6 +133,9 @@ class PumpProbe():
             self.awg.combine_channels(out=1, feed=2)
             # Sync channel arbs
             self.awg.sync_channels(syncFunc=True)
+        else:
+            self.awg.set_amp(exp.pump.amp, 1)
+            self.awg.set_amp(exp.probe.amp, 2)
 
         phase_range = np.linspace(-exp.phase_range, exp.phase_range, exp.samples)
 
