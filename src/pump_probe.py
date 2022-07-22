@@ -55,7 +55,6 @@ class PumpProbeConfig:
     lockin_freq: int # units = Hertz
     awg_id: str
     sample_rate: float
-    default_bias: float = 0.2 # units = Volts
     save_path: str = ""
 
 """
