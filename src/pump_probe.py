@@ -52,7 +52,6 @@ class PumpProbeConfig:
     stm_model: str
     lockin_ip: str
     lockin_port: int
-    lockin_freq: int # units = Hertz
     awg_id: str
     sample_rate: float
     save_path: str = ""

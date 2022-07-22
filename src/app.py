@@ -165,7 +165,7 @@ class MainWindow(QtWidgets.QMainWindow):
             config = self.read_config()
             self.report_progress("Pump-probe configuration imported from config.json. Configuration can be edited from file menu or by directly editing JSON file.")
         else:
-            config = PumpProbeConfig(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq=1007, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
+            config = PumpProbeConfig(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
         
         self.PumpProbe = PumpProbe(config)
         self.PumpProbe.plotter = QPlotter()
