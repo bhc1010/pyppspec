@@ -409,10 +409,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.horizontalHeaderItem(6).setText("Time Spread")
 
         # Defaults
-        self.pump_amp.setText("0.95")
+        self.pump_amp.setText("0.145")
         self.pump_width.setText("10e-9")
         self.pump_edge.setText("3e-9")
-        self.probe_amp.setText("0.6")
+        self.probe_amp.setText("0.05")
         self.probe_width.setText("10e-9")
         self.probe_edge.setText("3e-9")
         self.pulse_length.setText("100e-9")
