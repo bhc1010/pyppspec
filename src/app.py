@@ -544,3 +544,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.PumpProbe.config.save_path = save_path
         self.update_config()
         self.report_progress(f"Save path set to {self.PumpProbe.config.save_path}")
+
+    """
+    TODO: Opens a dialog window with configuration options. Writes to .config.json file.
+    """        
+    def update_config(self):
+        pass
