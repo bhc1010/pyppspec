@@ -311,12 +311,11 @@ class STM:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self._socket.connect((self.ip, self.port))
-            time.sleep(0.1)
         except socket.error as e:
             self.socket = None
             return Result(msg=repr(e), err=True)
         else:
-            return Result(msg="Connected", err=True)
+            return Result(msg="Connected", err=False)
     
     def on_close(self) -> None:
         pass

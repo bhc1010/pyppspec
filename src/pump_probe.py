@@ -140,12 +140,12 @@ class PumpProbe():
         data = list()
         dt = list()
 
-        # Set STM tip to unlimit
+        # Set STM tip to freeze
         self.stm.set_tip_control("freeze")
         time.sleep(1)
         
-        # Set STM bias to minimum
         """TODO: have bias a setting in the experiment?"""
+        # Set STM bias to minimum
         prev_bias = self.stm.get_bias()
         self.stm.set_bias(0.01)
         time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
@@ -186,6 +186,7 @@ class PumpProbe():
         
         # Set tip to unlimit
         # NOTE: Commenting out so that the tip height is constant across runs. Tip must be manually put back into unlimit mode
+        # time.sleep(1)
         # self.stm.set_tip_control("unlimit")
         
         return (dt, data)

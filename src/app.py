@@ -112,7 +112,7 @@ class PumpProbeWorker(QtCore.QThread):
             
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
-            exp.name = str(datetime.now())
+            exp.name = str(datetime.now().strftime("%Y%m%d %H-%M-%S"))
 
             # Make new figure 
             self._make_figure.emit(exp.name)
@@ -135,8 +135,9 @@ class PumpProbeWorker(QtCore.QThread):
                 return
             
             # Add zero line to plot
-            zero = 2*exp.pump.edge + exp.pump.width
+            zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
             plt.axvline(zero, color = 'r', linestyle='--')
+            
             # Save data
             self.save_data(exp, (dt, volt_data))
             # Check if next experiment in queue is a repeat arb
