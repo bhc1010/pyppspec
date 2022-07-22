@@ -27,7 +27,7 @@ class PumpProbeWorker(QtCore.QThread):
         self.queue = queue
         self.plotter = plotter
         self._running_pp = False
-        self._repeat_arb = False
+        self._new_arb = False
 
     def stop_early(self):
         self._running_pp = False
@@ -121,7 +121,7 @@ class PumpProbeWorker(QtCore.QThread):
             exp.stm_coords = self.pump_probe.stm.get_position()
             try:
                 self._progress.emit("Running pump-probe experiment.")
-                dt, volt_data = self.pump_probe.run(exp=exp, repeat=self._repeat_arb, plotter=self.plotter)
+                dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
             except Exception as e:
                 msg = f"[ERROR] {e}. "
                 if "'send'" in repr(e):
@@ -140,7 +140,12 @@ class PumpProbeWorker(QtCore.QThread):
             # Save data
             self.save_data(exp, (dt, volt_data))
             # Check if next experiment in queue is a repeat arb
-            
+            if len(self.queue.data) >= 2:
+                new_exp: PumpProbeExperiment = self.queue.data[1]
+                if new_exp.pump.edge != exp.pump.edge or new_exp.pump.width != exp.pump.width:
+                    self._new_arb = True
+                elif new_exp.probe.edge != exp.probe.edge and new_exp.probe.width != exp.probe.width:
+                    self._new_arb = True
             # Remove experiment from queue data and top row
             del self.queue.data[0]
             self.queue.removeRow(0)
