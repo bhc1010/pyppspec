@@ -368,6 +368,21 @@ class RHK_R9(STM):
         self._socket.recv(self._buffer_size)
         
     """
+    Returns current STM bias
+    """
+    def get_bias(self):
+        cmd = f'GetSWParameter, STM Bias, Value\n'
+        self._socket.send(cmd.encode())
+        bias = self._socket.recv(self._buffer_size).decode()
+        try:
+            return float(bias)
+        except:
+            cmd = f'GetSWParameter, STM Bias, Value\n'
+            self._socket.send(cmd.encode())
+            bias = self._socket.recv(self._buffer_size).decode()
+            return float(bias)
+        
+    """
     Returns the current tip position as a Vector2.
     TODO: What are the offset values relative to? The center of the scan window? global scan space?
     """
