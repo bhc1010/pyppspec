@@ -195,11 +195,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # Table queue
         self.queue = QDataTable(self.centralwidget)
         self.queue.setGeometry(QtCore.QRect(270, 30, 715, 411))
-        self.queue.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        self.queue.setShowGrid(True)
-        self.queue.setGridStyle(QtCore.Qt.SolidLine)
-        self.queue.setCornerButtonEnabled(False)
-        self.queue.setRowCount(1)
+        # self.queue.setShowGrid(True)
+        # self.queue.setGridStyle(QtCore.Qt.SolidLine)
+        # self.queue.setCornerButtonEnabled(False)
+        # self.queue.setRowCount(1)
         self.queue.setColumnCount(7)
         self.queue.setObjectName("queue")
         self.queue.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
@@ -427,6 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def init_connections(self):
         self.queue_btn.clicked.connect(self.start_queue_pushed)
         self.add_to_queue.clicked.connect(self.add_to_queue_pushed)
+        self.remove_from_queue.clicked.connect(self.remove_from_queue_pushed)
         self.lockin_ip.textChanged.connect(lambda ip=self.lockin_ip.text(): self.set_lockin_ip(ip=ip))
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
@@ -526,8 +526,18 @@ class MainWindow(QtWidgets.QMainWindow):
         probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
         new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=400, lockin_freq=self.lockin_freq.value())
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
-        self.statusbar.showMessage(f"New experiment added to queue.")
+        self.statusbar.showMessage("New experiment added to queue.")
         print(f"New experiment added to queue: {self.queue.data[-1]}")
+        
+    def remove_from_queue_pushed(self):
+        rowIdx = self.queue.currentRow()
+        if rowIdx >= 0:
+            # Remove row from queue
+            self.queue.removeRow(rowIdx)
+            # Remove experiment from queue data
+            self.statusbar.showMessage("Experiment removed from queue.")
+            print(f"Experiment removed from queue: {self.queue.data[rowIdx]}")
+            del self.queue.data[rowIdx]
 
     def set_save_path(self):
         save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
