@@ -176,8 +176,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.centralwidget.setObjectName("centralwidget")
         
         self.add_to_queue = QtWidgets.QPushButton(self.centralwidget)
-        self.add_to_queue.setGeometry(QtCore.QRect(20, 460, 241, 41))
+        self.add_to_queue.setGeometry(QtCore.QRect(10, 460, 241, 41))
         self.add_to_queue.setObjectName("add_to_queue")
+        
+        self.remove_from_queue = QtWidgets.QPushButton(self.centralwidget)
+        self.remove_from_queue.setGeometry(QtCore.QRect(270, 460, 241, 41))
+        self.remove_from_queue.setObjectName("remove_from_queue")
 
         self.queue_btn = QtWidgets.QPushButton(self.centralwidget)
         self.queue_btn.setGeometry(QtCore.QRect(730, 460, 241, 41))
@@ -371,6 +375,7 @@ class MainWindow(QtWidgets.QMainWindow):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle("Pump Probe")
         self.add_to_queue.setText("Add to queue")
+        self.remove_from_queue.setText("Remove from queue")
         self.queue_btn.setText("Start queue")
         self.pump_box.setTitle("Pump")
         self.pump_amp_label.setText("Amplitude (V)     ")
