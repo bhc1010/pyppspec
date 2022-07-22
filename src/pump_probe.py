@@ -126,7 +126,7 @@ class PumpProbe():
             self.awg.send_arb_ch(pump_arb, exp.pump.amp, self.config.sample_rate, 'Pump', 1)
             self.awg.send_arb_ch(probe_arb, exp.probe.amp, self.config.sample_rate, 'Probe', 2)
             # Modulate channel 2 amplitude
-            self.awg.modulate_ampitude(self.config.lockin_freq, 2)
+            self.awg.modulate_ampitude(exp.lockin_freq, 2)
             # Combine channels
             self.awg.combine_channels(out=1, feed=2)
             # Sync channel arbs
