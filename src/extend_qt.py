@@ -30,6 +30,7 @@ class QDataTable(QtWidgets.QTableWidget):
     def __init__(self, parent: QtWidgets.QWidget = None, read_only: bool = True):
         super().__init__(parent)
         self.data = list()
+        self.setSelectionBehavior(QtWidgets.QTableView.SelectionBehavior.SelectRows)
         if read_only:
             self.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
 
