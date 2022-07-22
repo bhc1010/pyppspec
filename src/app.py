@@ -105,7 +105,7 @@ class PumpProbeWorker(QtCore.QThread):
 
         # Run pump-probe for each experiment in queue until queue is empty of 'Stop queue' button is pressed.
         self._running_pp = True
-        
+
         # While the queue is not empty and pump-probe is still set to run (running_pp is set to False by clicking 'Stop queue')
         while(len(self.queue.data) != 0 and self._running_pp):
             self._queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
@@ -135,7 +135,8 @@ class PumpProbeWorker(QtCore.QThread):
                 return
             
             # Add zero line to plot
-            plt.axvline(0, color = 'k', linestyle='--')
+            zero = 2*exp.pump.edge + exp.pump.width
+            plt.axvline(zero, color = 'r', linestyle='--')
             # Save data
             self.save_data(exp, (dt, volt_data))
             # Check if next experiment in queue is a repeat arb
@@ -475,7 +476,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker._make_figure.connect(self.plotter.mk_figure)
         self.plotter._plot.connect(self.plotter.update_figure)
 
-        self.worker.start()
 
         self.queue_btn.setText("Stop queue")
         self.queue_btn.clicked.disconnect()
@@ -485,6 +485,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker._finished.connect(lambda: self.queue_btn.setEnabled(True))
         self.worker._finished.connect(lambda: self.queue_btn.clicked.disconnect())
         self.worker._finished.connect(lambda: self.queue_btn.clicked.connect(self.start_queue_pushed))
+        
+        self.worker.start()
 
     """
     Called when 'Stop queue' button is pushed. Emits hook signal to stop queue after current experiment is finished.
