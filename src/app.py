@@ -175,32 +175,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def setupUi(self):
         self.setObjectName("MainWindow")
-        self.setFixedSize(997, 554)
+        self.setFixedSize(1000, 570)
 
         self.centralwidget = QtWidgets.QWidget(self)
         self.centralwidget.setObjectName("centralwidget")
         
         self.add_to_queue = QtWidgets.QPushButton(self.centralwidget)
-        self.add_to_queue.setGeometry(QtCore.QRect(10, 460, 241, 41))
+        self.add_to_queue.setGeometry(QtCore.QRect(10, 475, 241, 41))
         self.add_to_queue.setObjectName("add_to_queue")
         
         self.remove_from_queue = QtWidgets.QPushButton(self.centralwidget)
-        self.remove_from_queue.setGeometry(QtCore.QRect(270, 460, 241, 41))
+        self.remove_from_queue.setGeometry(QtCore.QRect(270, 475, 241, 41))
         self.remove_from_queue.setObjectName("remove_from_queue")
 
         self.queue_btn = QtWidgets.QPushButton(self.centralwidget)
-        self.queue_btn.setGeometry(QtCore.QRect(730, 460, 241, 41))
+        self.queue_btn.setGeometry(QtCore.QRect(744, 475, 241, 41))
         self.queue_btn.setObjectName("queue_btn")
 
         # Table queue
         self.queue = QDataTable(self.centralwidget)
-        self.queue.setGeometry(QtCore.QRect(270, 30, 715, 411))
-        # self.queue.setShowGrid(True)
-        # self.queue.setGridStyle(QtCore.Qt.SolidLine)
-        # self.queue.setCornerButtonEnabled(False)
-        # self.queue.setRowCount(1)
-        self.queue.setColumnCount(7)
+        self.queue.setGeometry(QtCore.QRect(270, 30, 715, 435))
         self.queue.setObjectName("queue")
+        self.queue.setRowCount(1)
+        self.queue.setColumnCount(7)
         self.queue.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(1, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(2, QtWidgets.QTableWidgetItem())
@@ -288,7 +285,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Layout for other settings
         self.etc_layout = QtWidgets.QWidget(self.centralwidget)
-        self.etc_layout.setGeometry(QtCore.QRect(20, 290, 231, 150))
+        self.etc_layout.setGeometry(QtCore.QRect(20, 290, 231, 175))
         self.etc_layout.setObjectName("etc_layout")
         self.etc_layout = QtWidgets.QFormLayout(self.etc_layout)
         self.etc_layout.setContentsMargins(0, 0, 0, 0)
@@ -302,45 +299,53 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pulse_length.setObjectName("pulse_length")
         self.etc_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.pulse_length)
 
+        # Samples
+        self.samples_label = QtWidgets.QLabel(self)
+        self.samples_label.setObjectName("samples_label")
+        self.etc_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.samples_label)
+        self.samples = QNumericalLineEdit(self, QtGui.QIntValidator)
+        self.samples.setObjectName("samples")
+        self.etc_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.samples)
+        
         # Lock-in IP
         self.lockin_ip_label = QtWidgets.QLabel(self)
         self.lockin_ip_label.setObjectName("lockin_ip_label")
-        self.etc_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.lockin_ip_label)
+        self.etc_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.lockin_ip_label)
         self.lockin_ip = QtWidgets.QLineEdit(self)
         self.lockin_ip.setObjectName("lockin_ip")
-        self.etc_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.lockin_ip)
+        self.etc_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lockin_ip)
 
         # Lock-in Freq
         self.lockin_freq_label = QtWidgets.QLabel(self)
         self.lockin_freq_label.setObjectName("lockin_freq_label")
-        self.etc_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.lockin_freq_label)
+        self.etc_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.lockin_freq_label)
         self.lockin_freq = QNumericalLineEdit(self, QtGui.QDoubleValidator)
         self.lockin_freq.setObjectName("lockin_freq")
-        self.etc_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lockin_freq)
+        self.etc_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.lockin_freq)
 
         # Lock-in connection feedback
         self.lockin_status_label = QtWidgets.QLabel(self)
         self.lockin_status_label.setObjectName("lockin_status_label")
-        self.etc_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.lockin_status_label)
+        self.etc_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.lockin_status_label)
         self.lockin_status = QtWidgets.QLabel(self)
         self.lockin_status.setObjectName("lockin_status")
-        self.etc_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.lockin_status)
+        self.etc_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.lockin_status)
 
         # AWG connection feedback
         self.awg_status_label = QtWidgets.QLabel(self)
         self.awg_status_label.setObjectName("awg_status_label")
-        self.etc_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.awg_status_label)
+        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.awg_status_label)
         self.awg_status = QtWidgets.QLabel(self)
         self.awg_status.setObjectName("awg_status")
-        self.etc_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.awg_status)
+        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.awg_status)
         
         # STM connection feedback
         self.stm_status_label = QtWidgets.QLabel(self)
         self.stm_status_label.setObjectName("stm_status_label")
-        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.stm_status_label)
+        self.etc_layout.setWidget(6, QtWidgets.QFormLayout.LabelRole, self.stm_status_label)
         self.stm_status = QtWidgets.QLabel(self)
         self.stm_status.setObjectName("stm_status")
-        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.stm_status)
+        self.etc_layout.setWidget(6, QtWidgets.QFormLayout.FieldRole, self.stm_status)
 
         # Set central widget
         self.setCentralWidget(self.centralwidget)
@@ -357,7 +362,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusbar = QtWidgets.QStatusBar(self)
         self.statusbar.setObjectName("statusbar")
         self.statusbar_divider = QtWidgets.QFrame(self.centralwidget)
-        self.statusbar_divider.setGeometry(QtCore.QRect(0, 500, 1201, 20))
+        self.statusbar_divider.setGeometry(QtCore.QRect(0, 515, 1201, 20))
         self.statusbar_divider.setFrameShape(QtWidgets.QFrame.HLine)
         self.statusbar_divider.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.statusbar_divider.setObjectName("statusbar_divider")
@@ -390,6 +395,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.probe_width_label.setText("Width (s)")
         self.probe_edge_label.setText("Edge (s)")
         self.pulse_length_label.setText("Pulse Length (s)")
+        self.samples_label.setText("Samples")
         self.lockin_ip_label.setText("Lock-in IP")
         self.lockin_ip.setText("169.254.11.17")
 
@@ -411,6 +417,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.probe_edge.setText("3e-9")
         self.pulse_length.setText("100e-9")
         self.lockin_freq.setText("1007")
+        self.samples.setText("400")
 
         self.lockin_freq_label.setText("Lock-in Freq (Hz)")
         self.lockin_status_label.setText("Lock-in status: ")
@@ -520,11 +527,12 @@ class MainWindow(QtWidgets.QMainWindow):
     The row information is in the form of a QDataTableRow object which gets passed a dictionary from get_experiment_dict(). This allows the information 
     presented in the row be equivalent to what the user inputed (i.e. 100e-9 -> 100e-9 and not 100e-9 -> 1e-7). The new PumpProbeExperiment is instantiated
     with float values and added to the QDataTable's data array via QDataTable.add_item(..., data = PumpProbeExperiment(...))
+    TODO: Samples and lock-in freq should be set at the moment the data is taken? Or should they be part of the PumpProbeExperiment (i.e. have table cells)?
     """
     def add_to_queue_pushed(self):
         pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.pulse_length.value())
         probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
-        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=400, lockin_freq=self.lockin_freq.value())
+        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=self.samples.value(), lockin_freq=self.lockin_freq.value())
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
         self.statusbar.showMessage("New experiment added to queue.")
         print(f"New experiment added to queue: {self.queue.data[-1]}")
