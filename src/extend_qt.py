@@ -120,8 +120,6 @@ class QPlotter(QtCore.QObject):
         plt.subplots_adjust(right=0.725)
         self.line = ax.plot(self.xdata, self.ydata)[0]
         plt.text(1.05, 0.25, info, transform=ax.transAxes)
-        # for i, (key, item) in enumerate(info.items()):
-        #     plt.text(1.05, 1.0 - 0.05*i, f'{key} : {item}', transform=ax.transAxes)
 
     def update_figure(self, data:list = None):
         if data:

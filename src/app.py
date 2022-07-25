@@ -149,8 +149,8 @@ class PumpProbeWorker(QtCore.QThread):
                 return
             
             # Add zero line to plot
-            # zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
-            # plt.axvline(zero, color = 'r', linestyle='--')
+            zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
+            plt.axvline(zero, color = 'r', linestyle='--')
             
             # Save data
             self.save_data(exp, (dt, volt_data))
