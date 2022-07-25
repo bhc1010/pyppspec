@@ -82,20 +82,20 @@ class PumpProbeWorker(QtCore.QThread):
         self._running_pp = False
         self._new_arb = True
         # Check if devices are initialized
-        # self.init_lockin()
-        # self.init_awg()
-        # self.init_stm()
-        # ## Check if devices are connected
-        # lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
-        # awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
-        # stm_result = self.connect_device(self.pump_probe.stm, self._stm_status, self.pump_probe.config.stm_model)
+        self.init_lockin()
+        self.init_awg()
+        self.init_stm()
+        ## Check if devices are connected
+        lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
+        awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
+        stm_result = self.connect_device(self.pump_probe.stm, self._stm_status, self.pump_probe.config.stm_model)
         
-        # # Report any errors with connecting.
-        # for name, result in zip(["STM", "Lock-in", "AWG"], [stm_result, lockin_result, awg_result]):
-        #     if result.err:
-        #         self._progress.emit(f"[ERROR] {name} did not connect. Please ensure {name} is able to communicate with local user.")
-        #         self._finished.emit()
-        #         return
+        # Report any errors with connecting.
+        for name, result in zip(["STM", "Lock-in", "AWG"], [stm_result, lockin_result, awg_result]):
+            if result.err:
+                self._progress.emit(f"[ERROR] {name} did not connect. Please ensure {name} is able to communicate with local user.")
+                self._finished.emit()
+                return
 
         # Check if experiment queue is empty
         if self.queue.rowCount() == 0:
