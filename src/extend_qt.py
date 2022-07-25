@@ -103,7 +103,7 @@ class QPlotter(QtCore.QObject):
         self.xdata = list()
         self.ydata = list()
 
-    def mk_figure(self, name: str):
+    def mk_figure(self, info: str):
         self.clr()
         fig = plt.figure()
         
@@ -117,7 +117,11 @@ class QPlotter(QtCore.QObject):
         plt.xlabel(r"Time delay, $\Delta t$ (ns)")
         plt.ylabel(r"Voltage (V)")
         plt.grid(True)
+        plt.subplots_adjust(right=0.725)
         self.line = ax.plot(self.xdata, self.ydata)[0]
+        plt.text(1.05, 0.25, info, transform=ax.transAxes)
+        # for i, (key, item) in enumerate(info.items()):
+        #     plt.text(1.05, 1.0 - 0.05*i, f'{key} : {item}', transform=ax.transAxes)
 
     def update_figure(self, data:list = None):
         if data:

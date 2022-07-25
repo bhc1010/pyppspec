@@ -386,12 +386,14 @@ class RHK_R9(STM):
     TODO: What are the offset values relative to? The center of the scan window? global scan space?
     """
     def get_position(self) -> Vector2:
-        cmd = 'GetSWParameter, Scan Area Window, X Offset'
+        cmd = 'GetSWParameter, Scan Area Window, Tip X in scan coordinates\n'
         self._socket.send(cmd.encode())
-        x_offset = self._socket.recv(self._buffer_size)
+        x = self._socket.recv(self._buffer_size)
+        print(f'x: {x}')
         
-        cmd = 'GetSWParameter, Scan Area Window, Y Offset'
+        cmd = 'GetSWParameter, Scan Area Window, Tip Y in scan coordinates\n'
         self._socket.send(cmd.encode())
-        y_offset = self._socket.recv(self._buffer_size)
+        y = self._socket.recv(self._buffer_size)
+        print(f"y: {y}")
         
-        return Vector2(x=x_offset, y=y_offset)
+        return Vector2(x=x, y=y)

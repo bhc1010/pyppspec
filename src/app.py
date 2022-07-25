@@ -1,5 +1,5 @@
 import os
-import json
+import typing
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -26,8 +26,6 @@ class PumpProbeWorker(QtCore.QThread):
         self.pump_probe = pump_probe
         self.queue = queue
         self.plotter = plotter
-        self._running_pp = False
-        self._new_arb = False
 
     def stop_early(self):
         self._running_pp = False
@@ -81,21 +79,23 @@ class PumpProbeWorker(QtCore.QThread):
     Run pump probe experiment for each experiment in the queue until empty or 'Stop queue' button is pressed.
     """
     def run(self):
+        self._running_pp = False
+        self._new_arb = True
         # Check if devices are initialized
-        self.init_lockin()
-        self.init_awg()
-        self.init_stm()
-        ## Check if devices are connected
-        lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
-        awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
-        stm_result = self.connect_device(self.pump_probe.stm, self._stm_status, self.pump_probe.config.stm_model)
+        # self.init_lockin()
+        # self.init_awg()
+        # self.init_stm()
+        # ## Check if devices are connected
+        # lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
+        # awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
+        # stm_result = self.connect_device(self.pump_probe.stm, self._stm_status, self.pump_probe.config.stm_model)
         
-        # Report any errors with connecting.
-        for name, result in zip(["STM", "Lock-in", "AWG"], [stm_result, lockin_result, awg_result]):
-            if result.err:
-                self._progress.emit(f"[ERROR] {name} did not connect. Please ensure {name} is able to communicate with local user.")
-                self._finished.emit()
-                return
+        # # Report any errors with connecting.
+        # for name, result in zip(["STM", "Lock-in", "AWG"], [stm_result, lockin_result, awg_result]):
+        #     if result.err:
+        #         self._progress.emit(f"[ERROR] {name} did not connect. Please ensure {name} is able to communicate with local user.")
+        #         self._finished.emit()
+        #         return
 
         # Check if experiment queue is empty
         if self.queue.rowCount() == 0:
@@ -113,12 +113,26 @@ class PumpProbeWorker(QtCore.QThread):
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
             exp: PumpProbeExperiment = self.queue.data[0]
             exp.name = str(datetime.now().strftime("%Y%m%d %H-%M-%S"))
+            
+            try:
+                prev_exp = self.pump_probe.prev_exp
+            except:
+                prev_exp = None 
+                
+            if prev_exp:
+                if exp.pump.edge != prev_exp.pump.edge or exp.pump.width != prev_exp.pump.width:
+                    self._new_arb = True
+                elif exp.probe.edge != prev_exp.probe.edge and exp.probe.width != prev_exp.probe.width:
+                    self._new_arb = True
+                else:
+                    self._new_arb = False
+
 
             # Make new figure 
-            self._make_figure.emit(exp.name)
+            self._make_figure.emit(exp.generate_toml())
             
             # Get tip position
-            exp.stm_coords = self.pump_probe.stm.get_position()
+            # exp.stm_coords = self.pump_probe.stm.get_position()
             try:
                 self._progress.emit("Running pump-probe experiment.")
                 dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
@@ -135,24 +149,38 @@ class PumpProbeWorker(QtCore.QThread):
                 return
             
             # Add zero line to plot
-            zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
-            plt.axvline(zero, color = 'r', linestyle='--')
+            # zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
+            # plt.axvline(zero, color = 'r', linestyle='--')
             
             # Save data
             self.save_data(exp, (dt, volt_data))
             # Check if next experiment in queue is a repeat arb
-            if len(self.queue.data) >= 2:
-                new_exp: PumpProbeExperiment = self.queue.data[1]
-                if new_exp.pump.edge != exp.pump.edge or new_exp.pump.width != exp.pump.width:
-                    self._new_arb = True
-                elif new_exp.probe.edge != exp.probe.edge and new_exp.probe.width != exp.probe.width:
-                    self._new_arb = True
+            self.pump_probe.prev_exp = exp
             # Remove experiment from queue data and top row
             del self.queue.data[0]
             self.queue.removeRow(0)
         # Close thread
         self._progress.emit("QThread finished. Pump-probe experiment(s) stopped.")
         self._finished.emit()
+
+class SettingsDialog(QtWidgets.QDialog):
+    def __init__(self, settings: QtCore.QSettings) -> None:
+        super().__init__()
+        self.settings = settings
+        
+        self.setWindowTitle("Settings")
+        self.layout = QtWidgets.QFormLayout(self)
+        self.layout.setObjectName("layout")
+        self.labels = list()
+        self.keys = list()
+        for i, key in enumerate(self.settings.allKeys()):
+            self.labels.append(QtWidgets.QLabel(self.layout))
+            self.keys.append(QtWidgets.QLineEdit(self.layout))
+            self.layout.setWidget(i, QtWidgets.QFormLayout.LabelRole, self.labels[-1])
+            self.layout.setWidget(i, QtWidgets.QFormLayout.FieldRole, self.keys[-1])
+            self.labels[-1].setText(key)
+            self.keys[-1].setText(self.settings.value(key))
+        
 
 class MainWindow(QtWidgets.QMainWindow):
     _hook = QtCore.pyqtSignal()
@@ -162,13 +190,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setupUi()
         
         # Setup PumpProbeConfig
-        if os.path.isfile(".config.json"):
-            config = self.read_config()
-            self.report_progress("Pump-probe configuration imported from config.json. Configuration can be edited from file menu or by directly editing JSON file.")
-        else:
-            config = PumpProbeConfig(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
+        self.settings = QtCore.QSettings('HollenLab', 'pump-probe')
+        default_config = dict(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
+        if not self.settings.value('config_clean'):
+            for key, value in default_config.items():
+                self.settings.setValue(key, value)
+            self.settings.setValue('config_clean', True)
         
-        self.PumpProbe = PumpProbe(config)
+        config = dict()
+        for key in self.settings.allKeys():
+            print(f"{key} : {self.settings.value(key)}")
+            config[key] = self.settings.value(key)
+        
+        self.PumpProbe = PumpProbe(PumpProbeConfig(**config))
         self.PumpProbe.plotter = QPlotter()
         self.experiments = list()
         
@@ -374,8 +408,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_set_save_path.setObjectName("action_set_save_path")
         self.action_reset_connected_devices = QtWidgets.QAction(self)
         self.action_reset_connected_devices.setObjectName("action_reset_connected_devices")
+        self.action_edit_settings = QtWidgets.QAction(self)
+        self.action_edit_settings.setObjectName("action_edit_settings")
         self.menu_file.addAction(self.action_set_save_path)
         self.menu_file.addAction(self.action_reset_connected_devices)
+        self.menu_file.addAction(self.action_edit_settings)
         self.menubar.addAction(self.menu_file.menuAction())
 
         self.init_connections()
@@ -438,19 +475,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lockin_ip.textChanged.connect(lambda ip=self.lockin_ip.text(): self.set_lockin_ip(ip=ip))
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
-
-    def read_config(self):
-        with open('.config.json') as json_file:
-            config = json.load(json_file)
-        return PumpProbeConfig(**config)
-
-    def update_config(self):
-        with open('.config.json', 'w') as json_file:
-            json.dump(self.PumpProbe.config.__dict__, json_file)
+        self.action_edit_settings.triggered.connect(self.edit_settings)
 
     def set_lockin_ip(self, ip: str) -> None:
         self.PumpProbe.config.lockin_ip = ip
-        self.update_config()
         
     def reset_triggered(self):
         self.PumpProbe.lockin.reset()
@@ -551,11 +579,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def set_save_path(self):
         save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
         self.PumpProbe.config.save_path = save_path
-        self.update_config()
         self.report_progress(f"Save path set to {self.PumpProbe.config.save_path}")
 
     """
     TODO: Opens a dialog window with configuration options. Writes to .config.json file.
     """        
-    def update_config(self):
+    def edit_settings(self):
         pass
