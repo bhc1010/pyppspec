@@ -114,12 +114,7 @@ class PumpProbe():
         phase_range = exp.phase_range
         sweep_channel = 1
         sample_rate = self.config.sample_rate
-
-        for phi in np.linspace(0, np.pi, 100):
-            plotter._plot.emit([phi, np.sin(phi)])
-            time.sleep(0.05)
-        return (list(), list())
-
+        
         if new_arb:
             # Reset both devices
             self.awg.reset()
