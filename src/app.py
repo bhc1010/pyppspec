@@ -153,8 +153,10 @@ class PumpProbeWorker(QtCore.QThread):
             
             # Save data
             self.save_data(exp, (dt, volt_data))
+            
             # Check if next experiment in queue is a repeat arb
             self.pump_probe.prev_exp = exp
+            
             # Remove experiment from queue data and top row
             del self.queue.data[0]
             self.queue.removeRow(0)
@@ -191,15 +193,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Setup PumpProbeConfig
         self.settings = QtCore.QSettings('HollenLab', 'pump-probe')
         default_config = dict(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
-        if not self.settings.value('config_clean'):
+        if not self.settings.value('save_path'):
             for key, value in default_config.items():
                 self.settings.setValue(key, value)
-            self.settings.setValue('config_clean', True)
         
         config = dict()
         for key in self.settings.allKeys():
-            print(f"{key} : {self.settings.value(key)}")
-            config[key] = self.settings.value(key)
+            config[key] = self.settings.value(key, type=type(default_config[key]))
+            print(f"{key} : {self.settings.value(key)} - {type(self.settings.value(key))}")
         
         self.PumpProbe = PumpProbe(PumpProbeConfig(**config))
         self.PumpProbe.plotter = QPlotter()

@@ -55,7 +55,6 @@ class PumpProbeConfig:
     awg_id: str
     sample_rate: float
     save_path: str = ""
-    config_clean: bool = True
 
 """
 Defines a PumpProbe class that connects and holds references to devices, experimental settings, and runs pump-probe experiments.
@@ -184,10 +183,10 @@ class PumpProbe():
         
         # Set bias to default
         self.stm.set_bias(prev_bias)
+        time.sleep(2)
         
         # Set tip to unlimit
         # NOTE: Commenting out so that the tip height is constant across runs. Tip must be manually put back into unlimit mode
-        # time.sleep(1)
-        # self.stm.set_tip_control("unlimit")
+        self.stm.set_tip_control("unlimit")
         
         return (dt, data)
