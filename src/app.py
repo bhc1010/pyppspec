@@ -578,6 +578,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def set_save_path(self):
         save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
         self.PumpProbe.config.save_path = save_path
+        self.settings.setValue('save_path', save_path)
         self.report_progress(f"Save path set to {self.PumpProbe.config.save_path}")
 
     """
