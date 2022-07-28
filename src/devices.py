@@ -171,8 +171,8 @@ class AWG:
     """
     def set_phase(self, phase:float, ch:int):
         msg = f'SOURce{ch}:PHASe:ARB {phase}'
-        self.awg.write(msg)
-        self.awg.wait()
+        self.write(msg)
+        self.wait()
         
     """
     Sends an arbitrary waveform to device.
