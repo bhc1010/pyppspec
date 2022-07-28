@@ -170,18 +170,29 @@ class SettingsDialog(QtWidgets.QDialog):
         self.settings = settings
         
         self.setWindowTitle("Settings")
+        self.setMinimumSize(450, 225)
         self.layout = QtWidgets.QFormLayout(self)
         self.layout.setObjectName("layout")
         self.labels = list()
         self.keys = list()
         for i, key in enumerate(self.settings.allKeys()):
-            self.labels.append(QtWidgets.QLabel(self.layout))
-            self.keys.append(QtWidgets.QLineEdit(self.layout))
+            self.labels.append(QtWidgets.QLabel(self))
+            self.keys.append(QtWidgets.QLineEdit(self))
             self.layout.setWidget(i, QtWidgets.QFormLayout.LabelRole, self.labels[-1])
             self.layout.setWidget(i, QtWidgets.QFormLayout.FieldRole, self.keys[-1])
             self.labels[-1].setText(key)
             self.keys[-1].setText(self.settings.value(key))
+        self.accept_btn = QtWidgets.QPushButton(self)
+        self.accept_btn.setText("Accept")
+        self.layout.setWidget(len(self.labels), QtWidgets.QFormLayout.SpanningRole, self.accept_btn)
         
+        self.accept_btn.clicked.connect(self.on_exit)
+        
+    def on_exit(self):
+        for i, label in enumerate(self.labels):
+            self.settings.setValue(label.text(), self.keys[i].text())
+            
+        self.accept()
 
 class MainWindow(QtWidgets.QMainWindow):
     _hook = QtCore.pyqtSignal()
@@ -189,18 +200,21 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi()
+        default_config = dict(stm_model="RHK R9", 
+                              lockin_ip = "169.254.11.17", lockin_port=50_000, 
+                              awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', 
+                              sample_rate=1e9, save_path="")
         
         # Setup PumpProbeConfig
         self.settings = QtCore.QSettings('HollenLab', 'pump-probe')
-        default_config = dict(stm_model="RHK R9", lockin_ip = "169.254.11.17", lockin_port=50_000, awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', sample_rate=1e9, save_path="")
-        if not self.settings.value('save_path'):
+        if not self.settings.contains('save_path'):
             for key, value in default_config.items():
                 self.settings.setValue(key, value)
         
         config = dict()
         for key in self.settings.allKeys():
             config[key] = self.settings.value(key, type=type(default_config[key]))
-            print(f"{key} : {self.settings.value(key)} - {type(self.settings.value(key))}")
+            print(f"{key} : {self.settings.value(key)} - {type(default_config[key])}")
         
         self.PumpProbe = PumpProbe(PumpProbeConfig(**config))
         self.PumpProbe.plotter = QPlotter()
@@ -435,7 +449,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pulse_length_label.setText("Pulse Length (s)")
         self.samples_label.setText("Samples")
         self.lockin_ip_label.setText("Lock-in IP")
-        self.lockin_ip.setText("169.254.11.17")
+        self.lockin_ip.setText(self.settings.value('lockin_ip'))
 
         # Queue headers
         self.queue.horizontalHeaderItem(0).setText("Pump Amp")
@@ -467,6 +481,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menu_file.setTitle("File")
         self.action_set_save_path.setText("Set save path")
         self.action_reset_connected_devices.setText("Reset connected devices")
+        self.action_edit_settings.setText("Edit settings")
 
     def init_connections(self):
         self.queue_btn.clicked.connect(self.start_queue_pushed)
@@ -479,10 +494,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def set_lockin_ip(self, ip: str) -> None:
         self.PumpProbe.config.lockin_ip = ip
+        self.settings.setValue('lockin_ip', ip)
         
     def reset_triggered(self):
-        self.PumpProbe.lockin.reset()
-        self.PumpProbe.awg.reset()
+        if self.PumpProbe.lockin:
+            self.PumpProbe.lockin.reset()
+        if self.PumpProbe.awg:
+            self.PumpProbe.awg.reset()
 
     def update_lockin_status(self, msg: str) -> None:
         self.lockin_status.setText(msg)
@@ -583,7 +601,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.report_progress(f"Save path set to {self.PumpProbe.config.save_path}")
 
     """
-    TODO: Opens a dialog window with configuration options. Writes to .config.json file.
+    Opens a dialog window with configuration options. Stores in QSettings object
     """        
     def edit_settings(self):
-        pass
+        settings_dialog = SettingsDialog(self.settings)
+        if settings_dialog.exec_():
+            self.report_progress("Settings updated.")

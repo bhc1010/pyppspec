@@ -91,7 +91,6 @@ class GenerateDerivativePlotButton(ToolBase):
         plt.grid(True)
         plt.draw()
         
-
 """
 
 """
