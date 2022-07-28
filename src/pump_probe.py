@@ -194,7 +194,7 @@ class PumpProbe():
             data.append(y)
             # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
             if plotter and plotter._plot:
-                plotter._plot.emit([dx[-1], data[-1]])
+                plotter._plot.emit([x[-1], data[-1]])
         
         # Close channel 1 on AWG
         self.awg.close_channel(1)
