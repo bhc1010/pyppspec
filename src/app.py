@@ -113,20 +113,20 @@ class PumpProbeWorker(QtCore.QThread):
             
             # Get tip position
             # exp.stm_coords = self.pump_probe.stm.get_position()
-            try:
-                self._progress.emit("Running pump-probe experiment.")
-                dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
-            except Exception as e:
-                msg = f"[ERROR] {e}. "
-                if "'send'" in repr(e):
-                    msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
-                elif "'write'" in repr(e):
-                    msg += " 'write' is an AWG method. Is the AWG connected properly?"
-                self._progress.emit(msg)
-                self._queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
-                self._running_pp = False
-                self._finished.emit()
-                return
+            # try:
+            self._progress.emit("Running pump-probe experiment.")
+            dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
+            # except Exception as e:
+            #     msg = f"[ERROR] {e}. "
+            #     if "'send'" in repr(e):
+            #         msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
+            #     elif "'write'" in repr(e):
+            #         msg += " 'write' is an AWG method. Is the AWG connected properly?"
+            #     self._progress.emit(msg)
+            #     self._queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
+            #     self._running_pp = False
+            #     self._finished.emit()
+            #     return
             
             # Add zero line to plot
             zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
