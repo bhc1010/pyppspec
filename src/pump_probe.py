@@ -1,6 +1,6 @@
 import os, time
 import numpy as np
-from devices import STM, LockIn, AWG, Vector2
+from devices import RHK_R9, STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable
 
@@ -73,10 +73,12 @@ class PumpProbe():
     def __init__(self, config:PumpProbeConfig = None):
         super().__init__()
         self.config = config
-        self.stm: STM = None
-        self.lockin: LockIn = None
-        self.awg: AWG = None
+        self.stm: STM = RHK_R9()
+        self.lockin: LockIn = LockIn(ip=config.lockin_ip, port=config.lockin_port)
+        self.awg: AWG = AWG(id=config.awg_id)
 
+    """
+    """
     def create_experiment(self, time_spread: float, pump_amp: float, pump_width:float, pump_edge:float, probe_amp:float, probe_width:float, probe_edge:float, 
                         phase_range:float, samples:int, lockin_freq:int) -> PumpProbeExperiment:
         pump = Pulse(amp=pump_amp, width=pump_width, edge=pump_edge, time_spread=time_spread)

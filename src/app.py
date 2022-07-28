@@ -28,22 +28,6 @@ class PumpProbeWorker(QtCore.QThread):
 
     def stop_early(self):
         self._running_pp = False
-        
-    def init_stm(self) -> None:
-        if self.pump_probe.stm == None:
-            model =  self.pump_probe.config.stm_model
-            self._progress.emit(f"[{model}] Initializing")
-            self.pump_probe.stm = RHK_R9()
-
-    def init_lockin(self) -> None:
-        if self.pump_probe.lockin == None:
-            self._progress.emit("[Lock-in] Initializing")
-            self.pump_probe.lockin = LockIn(ip=self.pump_probe.config.lockin_ip, port=self.pump_probe.config.lockin_port)
-
-    def init_awg(self) -> None:
-        if self.pump_probe.awg == None:
-            self._progress.emit("[AWG] Initializing")
-            self.pump_probe.awg = AWG(id=self.pump_probe.config.awg_id)
 
     def connect_device(self, device, signal, name):
         self._progress.emit(f"[{name}] Connecting...")
@@ -80,10 +64,7 @@ class PumpProbeWorker(QtCore.QThread):
     def run(self):
         self._running_pp = False
         self._new_arb = True
-        # Check if devices are initialized
-        self.init_lockin()
-        self.init_awg()
-        self.init_stm()
+
         ## Check if devices are connected
         lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
         awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
