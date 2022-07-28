@@ -153,15 +153,27 @@ class AWG:
         amp: amplitude to set
         ch : arb channel
     """
-    def set_amp(self, amp:float, ch:int, offset:int = 0):
+    def set_amp(self, amp:float, ch:int):
         # Set amplitude
         msg = f'SOURce{ch}:VOLT {amp}'
         self.write(msg)
+        self.wait()
 
-        # Set volt offset to 0
-        msg = f'SOURce{ch}VOLT:OFFSET {offset}'
+        # Set volt offset
+        msg = f'SOURce{ch}VOLT:OFFSET 0'
         self.write(msg)
-
+        self.wait()
+    
+    """
+    Sets phase for waveform on given channel
+        phase : phase to set 
+        ch    : arb channel
+    """
+    def set_phase(self, phase:float, ch:int):
+        msg = f'SOURce{ch}:PHASe:ARB {phase}'
+        self.awg.write(msg)
+        self.awg.wait()
+        
     """
     Sends an arbitrary waveform to device.
         arb         : list of waveform points

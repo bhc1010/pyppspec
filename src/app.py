@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
-from pump_probe import PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
+from pump_probe import Procedure, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
 from devices import LockIn, AWG, RHK_R9
 from datetime import datetime
 
@@ -577,9 +577,10 @@ class MainWindow(QtWidgets.QMainWindow):
     TODO: Samples and lock-in freq should be set at the moment the data is taken? Or should they be part of the PumpProbeExperiment (i.e. have table cells)?
     """
     def add_to_queue_pushed(self):
+        procedure = self.sweep_phase_procedure()
         pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.pulse_length.value())
         probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
-        new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, phase_range=180, samples=self.samples.value(), lockin_freq=self.lockin_freq.value())
+        new_experiment = PumpProbeExperiment(procedure=procedure, pump=pump_pulse, probe=probe_pulse, sweep_interval=(-180,180), sweep_channel=1, samples=self.samples.value(), lockin_freq=self.lockin_freq.value())
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
         self.statusbar.showMessage("New experiment added to queue.")
         print(f"New experiment added to queue: {self.queue.data[-1]}")
@@ -607,3 +608,9 @@ class MainWindow(QtWidgets.QMainWindow):
         settings_dialog = SettingsDialog(self.settings)
         if settings_dialog.exec_():
             self.report_progress("Settings updated.")
+            
+    def sweep_phase_procedure(self) -> Procedure:
+        return Procedure(self.PumpProbe.awg.set_phase, conversion=self.pulse_length.value() / 360 * self.PumpProbe.config.sample_rate)
+    
+    def sweep_amp_procedure(self) -> Procedure:
+        return Procedure(self.PumpProbe.awg.set_amp, conversion=self.PumpProbe.config.sample_rate)

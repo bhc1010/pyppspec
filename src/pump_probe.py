@@ -2,7 +2,7 @@ import os, time
 import numpy as np
 from devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Callable
 
 """
 Defines an immutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
@@ -13,6 +13,14 @@ class Pulse:
     width: float
     edge: float
     time_spread: float
+    
+"""
+Defines an immutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
+"""
+@dataclass(frozen=True)
+class Procedure:
+    call: Callable
+    conversion: float
 
 """
 Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
@@ -20,9 +28,11 @@ Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse da
 """
 @dataclass()
 class PumpProbeExperiment:
+    procedure: Procedure
     pump: Pulse
     probe: Pulse
-    phase_range: float
+    sweep_interval: tuple
+    sweep_channel: int
     samples: int
     lockin_freq: int
     stm_coords: Vector2 = Vector2(0,0)
@@ -109,10 +119,12 @@ class PumpProbe():
         exp : PumpProbeExperiment to run
     """
     def run(self, exp:PumpProbeExperiment, new_arb:bool, plotter=None) -> Tuple[list, list]:
-        time_spread = exp.probe.time_spread
-        phase_range = exp.phase_range
-        sweep_channel = 1
-        sample_rate = self.config.sample_rate
+        procedure = exp.procedure
+        conversion_factor = procedure.conversion
+        sweep_start = exp.sweep_interval[0]
+        sweep_end = exp.sweep_interval[1]
+        samples = exp.samples
+        sweep_channel = exp.sweep_channel
         
         if new_arb:
             # Reset both devices
@@ -135,10 +147,12 @@ class PumpProbe():
             self.awg.set_amp(exp.pump.amp, 1)
             self.awg.set_amp(exp.probe.amp, 2)
 
-        phase_range = np.linspace(-exp.phase_range, exp.phase_range, exp.samples)
+        # phase_range = np.linspace(-exp.phase_range, exp.phase_range, exp.samples)
 
+        sweep_range = np.linspace(sweep_start, sweep_end, samples)
+        
         data = list()
-        dt = list()
+        x = list()
 
         # Set STM tip to freeze
         self.stm.set_tip_control("freeze")
@@ -146,47 +160,50 @@ class PumpProbe():
         
         """TODO: have bias a setting in the experiment?"""
         # Set STM bias to minimum
-        prev_bias = self.stm.get_bias()
-        self.stm.set_bias(0.01)
-        time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
+        # prev_bias = self.stm.get_bias()
+        # self.stm.set_bias(0.01)
+        # time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
 
         # Open channel 1 on AWG
         self.awg.open_channel(1)
         
         # For each phase in phase_range, set phase on AWG sweep channel and measure output from lockin. If a plotter object is given to
         #   PumpProbe.run() then emit the latest data.
-        for i in range(len(phase_range)):
-            t = phase_range[i] * (time_spread / 360)
-            offset = 2 * exp.pump.edge + exp.pump.width
-            dt.append((t - offset) * sample_rate)
-            self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.")
-            self.awg.wait().expected("AWG not waiting to set phase.")
-            if i == 0:
-                self.lockin.send('X.'.encode()).expected("Initial buffering message not sent.")
-                time.sleep(0.2)
-                self.lockin.recv(1024).expected("Initial buffering message not received.")
-            time.sleep(0.01)
+        self.lockin.send('X.'.encode()).expected("Initial buffering message not sent.")
+        time.sleep(0.2)
+        self.lockin.recv(1024).expected("Initial buffering message not received.")
+        for i in range(len(sweep_range)):
+            # define x coordinate
+            dx = sweep_range[i] * conversion_factor
+            x.append(dx)
+            
+            # Procedure done each dx
+            exp.procedure.call(sweep_range[i], sweep_channel)
+            # self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.") 
+            # self.awg.wait().expected("AWG not waiting to set phase.")
+            # time.sleep(0.01)
+            # Read value from lock-in
             self.lockin.send('X.'.encode()).expected("Request for X value not sent to Lockin")
-            X = self.lockin.recv(1024).expected("X value not recieved from Lockin")
-            if X.err == False:
-                X = X.result().decode()
-            X = X.split()[0]
-            X = float(X)
-            data.append(X)
+            y = self.lockin.recv(1024).expected("X value not recieved from Lockin")
+            if y.err == False:
+                y = y.result().decode()
+            y = y.split()[0]
+            y = float(y)
+            data.append(y)
             # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
             if plotter and plotter._plot:
-                plotter._plot.emit([dt[-1], data[-1]])
+                plotter._plot.emit([dx[-1], data[-1]])
         
         # Close channel 1 on AWG
         self.awg.close_channel(1)
         time.sleep(1)
         
         # Set bias to default
-        self.stm.set_bias(prev_bias)
-        time.sleep(2)
+        # self.stm.set_bias(prev_bias)
+        # time.sleep(2)
         
         # Set tip to unlimit
         # NOTE: Commenting out so that the tip height is constant across runs. Tip must be manually put back into unlimit mode
-        self.stm.set_tip_control("unlimit")
+        # self.stm.set_tip_control("unlimit")
         
-        return (dt, data)
+        return (dx, data)
