@@ -181,9 +181,9 @@ class PumpProbe():
             
             # Procedure done each dx
             exp.procedure.call(sweep_range[i], sweep_channel)
+            time.sleep(0.01)
             # self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.") 
             # self.awg.wait().expected("AWG not waiting to set phase.")
-            # time.sleep(0.01)
             # Read value from lock-in
             self.lockin.send('X.'.encode()).expected("Request for X value not sent to Lockin")
             y = self.lockin.recv(1024).expected("X value not recieved from Lockin")
