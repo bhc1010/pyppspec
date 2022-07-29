@@ -1,4 +1,5 @@
-import os
+from inspect import trace
+import os, traceback
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -117,6 +118,7 @@ class PumpProbeWorker(QtCore.QThread):
                 self._progress.emit("Running pump-probe experiment.")
                 dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
             except Exception as e:
+                traceback.print_exc()
                 msg = f"[ERROR] {e}. "
                 if "'send'" in repr(e):
                     msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
