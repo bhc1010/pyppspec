@@ -105,6 +105,8 @@ class PumpProbeWorker(QtCore.QThread):
                     self._new_arb = True
                 elif exp.probe.edge != prev_exp.probe.edge and exp.probe.width != prev_exp.probe.width:
                     self._new_arb = True
+                elif exp.pump.time_spread != prev_exp.pump.time_spread:
+                    self._new_arb = True
                 else:
                     self._new_arb = False
 
@@ -113,7 +115,7 @@ class PumpProbeWorker(QtCore.QThread):
             self._make_figure.emit(exp.generate_toml())
             
             # Get tip position
-            # exp.stm_coords = self.pump_probe.stm.get_position()
+            exp.stm_coords = self.pump_probe.stm.get_position()
             try:
                 self._progress.emit("Running pump-probe experiment.")
                 dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
