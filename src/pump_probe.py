@@ -149,8 +149,6 @@ class PumpProbe():
             self.awg.set_amp(exp.pump.amp, 1)
             self.awg.set_amp(exp.probe.amp, 2)
 
-        # phase_range = np.linspace(-exp.phase_range, exp.phase_range, exp.samples)
-
         sweep_range = np.linspace(sweep_start, sweep_end, samples)
         
         data = list()
@@ -162,9 +160,9 @@ class PumpProbe():
         
         """TODO: have bias a setting in the experiment?"""
         # Set STM bias to minimum
-        # prev_bias = self.stm.get_bias()
-        # self.stm.set_bias(0.01)
-        # time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
+        prev_bias = self.stm.get_bias()
+        self.stm.set_bias(0.01)
+        time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
 
         # Open channel 1 on AWG
         self.awg.open_channel(1)
@@ -182,8 +180,7 @@ class PumpProbe():
             # Procedure done each dx
             exp.procedure.call(sweep_range[i], sweep_channel)
             time.sleep(0.01)
-            # self.awg.write(f'SOURce{sweep_channel}:PHASe:ARB {phase_range[i]}').expected("AWG phase not set.") 
-            # self.awg.wait().expected("AWG not waiting to set phase.")
+
             # Read value from lock-in
             self.lockin.send('X.'.encode()).expected("Request for X value not sent to Lockin")
             y = self.lockin.recv(1024).expected("X value not recieved from Lockin")
@@ -192,6 +189,7 @@ class PumpProbe():
             y = y.split()[0]
             y = float(y)
             data.append(y)
+            
             # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
             if plotter and plotter._plot:
                 plotter._plot.emit([x[-1], data[-1]])
@@ -201,11 +199,11 @@ class PumpProbe():
         time.sleep(1)
         
         # Set bias to default
-        # self.stm.set_bias(prev_bias)
-        # time.sleep(2)
+        self.stm.set_bias(prev_bias)
+        time.sleep(2)
         
         # Set tip to unlimit
         # NOTE: Commenting out so that the tip height is constant across runs. Tip must be manually put back into unlimit mode
-        # self.stm.set_tip_control("unlimit")
+        self.stm.set_tip_control("unlimit")
         
         return (dx, data)
