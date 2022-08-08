@@ -112,7 +112,6 @@ class PumpProbeWorker(QtCore.QThread):
                     else:
                         self._new_arb = False
 
-
                 # Make new figure 
                 self._make_figure.emit(exp.generate_toml())
                 
@@ -180,6 +179,8 @@ class SettingsDialog(QtWidgets.QDialog):
             
         self.accept()
 
+"""
+"""
 class MainWindow(QtWidgets.QMainWindow):
     _hook = QtCore.pyqtSignal()
 
@@ -210,7 +211,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                'procedure_start' : 0.0, 'procedure_end' : 0.0,
                                'fixed_time_delay' : 0.0, 'sweep_parameter' : 'None', 'sweep_channel' : 'Pump',
                                'sweep_start' : 0.0, 'sweep_end' : 0.0, 'sweep_increment' : 0.0}
-
+    """
+    """
     def setupUi(self):
         self.setFixedSize(1111, 751)
 
@@ -510,6 +512,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.init_connections()
         QtCore.QMetaObject.connectSlotsByName(self)
 
+    """
+    """
     def retranslateUi(self):
         self.setWindowTitle("All-Electronic Pump Probe Spectroscopy")
         
@@ -595,7 +599,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_set_save_path.setText("Set save path")
         self.action_reset_connected_devices.setText("Reset connected devices")
         self.action_edit_settings.setText("Edit settings")
-
+    
+    """
+    """
     def init_connections(self):
         self.procedure.activated.connect(self.set_procedure_settings)
         self.procedure_btn.clicked.connect(self.run_procedures)
@@ -605,34 +611,44 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
         self.action_edit_settings.triggered.connect(self.edit_settings)
-
-    def set_lockin_ip(self, ip: str) -> None:
-        self.PumpProbe.config.lockin_ip = ip
-        self.settings.setValue('lockin_ip', ip)
-        
+    
+    """
+    """ 
     def reset_triggered(self):
         if self.PumpProbe.lockin:
             self.PumpProbe.lockin.reset()
         if self.PumpProbe.awg:
             self.PumpProbe.awg.reset()
 
+    """
+    """
     def update_lockin_status(self, msg: str) -> None:
         self.lockin_status.setText(msg)
 
+    """
+    """
     def update_awg_status(self, msg: str) -> None:
         self.awg_status.setText(msg)
-        
+    
+    """
+    """    
     def update_stm_status(self, msg: str) -> None:
         self.stm_status.setText(msg)
 
+    """
+    """
     def update_queue_status(self, color: QtGui.QColor) -> None:
         for cell in range(self.queue.columnCount()):
             self.queue.item(0, cell).setBackground(color)
-        
+    
+    """
+    """    
     def report_progress(self, msg:str) -> None:
         print(f"{msg}")
         self.statusbar.showMessage(msg)
 
+    """
+    """
     def set_procedure_settings(self):
         self.time_delay_procedure_settings_layout_outer.hide()
         self.amp_procedure_settings_layout_outer.hide()
@@ -653,20 +669,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.sweep_channel.setEnabled(True)
             case _:
                 pass
-
+            
+    """
+    """
     def amp_proc_ch_changed(self):
         if self.amp_procedure_channel.currentText() == "Probe":
             self.sweep_channel.setCurrentText("Pump")
         else:
             self.sweep_channel.setCurrentText("Probe")
 
+    """
+    Called when 'Run procedures' button is pressed. Handles running of pump-probe experiment on seperate QThread.
+    """
     def run_procedures(self):
-        pass
-
-    """
-    Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
-    """
-    def start_queue_pushed(self):
         while self.PumpProbe.config.save_path == "":
             self.set_save_path()
         self.plotter = QPlotter()
@@ -685,14 +700,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plotter._plot.connect(self.plotter.update_figure)
 
 
-        self.queue_btn.setText("Stop queue")
-        self.queue_btn.clicked.disconnect()
-        self.queue_btn.clicked.connect(self.stop_queue_pushed)
+        self.procedure_btn.setText("Stop procedures")
+        self.procedure_btn.clicked.disconnect()
+        self.procedure_btn.clicked.connect(self.stop_queue_pushed)
 
-        self.worker._finished.connect(lambda: self.queue_btn.setText("Start queue"))
-        self.worker._finished.connect(lambda: self.queue_btn.setEnabled(True))
-        self.worker._finished.connect(lambda: self.queue_btn.clicked.disconnect())
-        self.worker._finished.connect(lambda: self.queue_btn.clicked.connect(self.start_queue_pushed))
+        self.worker._finished.connect(lambda: self.procedure_btn.setText("Run procedures"))
+        self.worker._finished.connect(lambda: self.procedure_btn.setEnabled(True))
+        self.worker._finished.connect(lambda: self.procedure_btn.clicked.disconnect())
+        self.worker._finished.connect(lambda: self.procedure_btn.clicked.connect(self.start_queue_pushed))
         
         self.worker.start()
 
@@ -702,7 +717,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def stop_queue_pushed(self):
         self._hook.emit()
         self._hook.disconnect()
-        self.queue_btn.setEnabled(False)
+        self.procedure_btn.setEnabled(False)
 
     """
     Returns a dict containing all relevant experimental information to be displayed in the queue. Dictionary keys correspond to column titles.
@@ -839,18 +854,6 @@ class MainWindow(QtWidgets.QMainWindow):
     """
     """
     def remove_procedure(self):
-        pass
-
-    def get_selected_procedure(self):
-        match self.procedure.currentText():
-            case "Time delay":
-                return self.sweep_phase_procedure()
-            case "Amplitude":
-                return self.sweep_amp_procedure()
-            case _:
-                return None
-
-    def remove_from_queue_pushed(self):
         rowIdx = self.queue.currentRow()
         if rowIdx >= 0:
             # Remove row from queue
@@ -860,6 +863,19 @@ class MainWindow(QtWidgets.QMainWindow):
             print(f"Experiment removed from queue: {self.queue.data[rowIdx]}")
             del self.queue.data[rowIdx]
 
+    """
+    """
+    def get_selected_procedure(self):
+        match self.procedure.currentText():
+            case "Time delay":
+                return self.sweep_phase_procedure()
+            case "Amplitude":
+                return self.sweep_amp_procedure()
+            case _:
+                return None
+    
+    """
+    """
     def set_save_path(self):
         save_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Set Save Path', self.PumpProbe.config.save_path)
         self.PumpProbe.config.save_path = save_path
@@ -873,9 +889,13 @@ class MainWindow(QtWidgets.QMainWindow):
         settings_dialog = SettingsDialog(self.settings)
         if settings_dialog.exec_():
             self.report_progress("Settings updated.")
-            
+    
+    """
+    """
     def sweep_phase_procedure(self) -> Procedure:
         return Procedure(self.PumpProbe.awg.set_phase, conversion_factor=100e-9 / 360 * self.PumpProbe.config.sample_rate)
     
+    """
+    """
     def sweep_amp_procedure(self) -> Procedure:
         return Procedure(self.PumpProbe.awg.set_amp, conversion_factor=1.0)

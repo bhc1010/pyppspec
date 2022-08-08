@@ -104,6 +104,7 @@ class QPlotter(QtCore.QObject):
         super().__init__()
         self.xdata = list()
         self.ydata = list()
+        self.lines = list()
 
     def mk_figure(self, info: str):
         self.clr()
@@ -120,13 +121,20 @@ class QPlotter(QtCore.QObject):
         plt.ylabel(r"Voltage (V)")
         plt.grid(True)
         plt.subplots_adjust(right=0.725)
-        self.line = ax.plot(self.xdata, self.ydata)[0]
+        line = ax.plot(self.xdata, self.ydata)[0]
+        self.lines.append(line)
         plt.text(1.05, 0.25, info, transform=ax.transAxes)
+        
+    def add_line(self):
+        self.clr()
+        ax = plt.gca()
+        line = ax.plot(self.xdata, self.ydata)[0]
+        self.lines.append(line)
 
     def update_figure(self, data:list = None):
         if data:
             self.add_data(data[0], data[1])
-        self.line.set_data(self.xdata, self.ydata)
+        self.lines[-1].set_data(self.xdata, self.ydata)
         ax = plt.gca()
         ax.relim()
         ax.autoscale_view()
