@@ -234,11 +234,11 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Add procedure btn
         self.add_procedure_btn = QtWidgets.QPushButton(self.centralwidget)
-        self.add_procedure_btn.setGeometry(QtCore.QRect(10, 580, 251, 51))
+        self.add_procedure_btn.setGeometry(QtCore.QRect(10, 600, 251, 41))
         
         # Remove procedure btn
         self.remove_procedure_btn = QtWidgets.QPushButton(self.centralwidget)
-        self.remove_procedure_btn.setGeometry(QtCore.QRect(10, 640, 251, 51))
+        self.remove_procedure_btn.setGeometry(QtCore.QRect(10, 650, 251, 41))
         
         # Run / stop procedures btn
         self.procedure_btn = QtWidgets.QPushButton(self.centralwidget)
@@ -408,46 +408,54 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Sweep box
         self.sweep_box = QtWidgets.QGroupBox(self.centralwidget)
-        self.sweep_box.setGeometry(QtCore.QRect(10, 370, 251, 191))
+        self.sweep_box.setGeometry(QtCore.QRect(10, 370, 251, 211))
         self.sweep_box.setCheckable(True)
         
+        # Sweep box vlayout
+        self.sweep_box_vlayout_outer  = QtWidgets.QWidget(self.sweep_box)
+        self.sweep_box_vlayout_outer.setGeometry(QtCore.QRect(10, 30, 233, 175))
+        self.sweep_box_vlayout = QtWidgets.QVBoxLayout(self.sweep_box_vlayout_outer)
+        self.sweep_box_vlayout.setContentsMargins(0, 0, 0, 0)
+        
         # Sweep box layout
-        self.sweep_box_layout_outer = QtWidgets.QWidget(self.sweep_box)
-        self.sweep_box_layout_outer.setGeometry(QtCore.QRect(10, 30, 231, 151))
-        self.sweep_box_layout = QtWidgets.QFormLayout(self.sweep_box_layout_outer)
-        self.sweep_box_layout.setContentsMargins(0, 0, 0, 0)
+        self.sweep_box_layout = QtWidgets.QFormLayout()
+        self.sweep_box_vlayout.addLayout(self.sweep_box_layout)
         
         # Sweep parameter
-        self.sweep_parameter_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_parameter_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.sweep_parameter_label)
         self.sweep_parameter = QtWidgets.QComboBox(self.sweep_box)
         self.sweep_parameter.addItems(["" for _ in range(3)])
         self.sweep_box_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.sweep_parameter)
         
         # Sweep channel
-        self.sweep_channel_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_channel_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.sweep_channel_label)
-        self.sweep_channel = QtWidgets.QComboBox(self.sweep_box)
+        self.sweep_channel = QtWidgets.QComboBox(self.sweep_box_vlayout_outer)
         self.sweep_channel.addItems(["" for _ in range(3)])
         self.sweep_box_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.sweep_channel)
         
         # Sweep start
-        self.sweep_start_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_start_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.sweep_start_label)
-        self.sweep_start = QNumericalLineEdit(self.sweep_box, QtGui.QDoubleValidator)
+        self.sweep_start = QNumericalLineEdit(self.sweep_box_vlayout_outer, QtGui.QDoubleValidator)
         self.sweep_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.sweep_start)
         
         # Sweep end
-        self.sweep_end_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_end_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.sweep_end_label)
-        self.sweep_end = QNumericalLineEdit(self.sweep_box, QtGui.QDoubleValidator)
+        self.sweep_end = QNumericalLineEdit(self.sweep_box_vlayout_outer, QtGui.QDoubleValidator)
         self.sweep_box_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.sweep_end)
         
         # Sweep increment
-        self.sweep_increment_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_increment_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.sweep_increment_label)
-        self.sweep_increment = QNumericalLineEdit(self.sweep_box, QtGui.QDoubleValidator)
+        self.sweep_increment = QNumericalLineEdit(self.sweep_box_vlayout_outer, QtGui.QDoubleValidator)
         self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.sweep_increment)
+        
+        # Overlay runs on same figure checkbox
+        self.overlay_checkbox = QtWidgets.QCheckBox(self.sweep_box_vlayout_outer)
+        self.sweep_box_vlayout.addWidget(self.overlay_checkbox)
 
         # Device status layout
         self.device_status_layout = QtWidgets.QWidget(self.centralwidget)
@@ -557,6 +565,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sweep_start_label.setText("Sweep start")
         self.sweep_end_label.setText("Sweep end")
         self.sweep_increment_label.setText("Increment")
+        self.overlay_checkbox.setText("Overlay runs on same figure")
 
         # Queue headers
         self.queue.horizontalHeaderItem(0).setText("Procedure")
