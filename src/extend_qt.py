@@ -21,6 +21,9 @@ class QNumericalLineEdit(QtWidgets.QLineEdit):
                 return float(val)
             case _:
                 return str(val)
+    
+    def setValue(self, val):
+        self.setText(str(val))
 
 class QDataTableRow():
     def __init__(self, **kwargs):
@@ -108,8 +111,8 @@ class QPlotter(QtCore.QObject):
         
         # Add custom tools to figure
         # TODO: Make button unenabled until measurement is completely taken? Can't add tool after plots are made.
-        fig.canvas.manager.toolmanager.add_tool('Estimate Derivative', GenerateDerivativePlotButton)
-        fig.canvas.manager.toolbar.add_tool('Estimate Derivative', 'custom')
+        # fig.canvas.manager.toolmanager.add_tool('Estimate Derivative', GenerateDerivativePlotButton)
+        # fig.canvas.manager.toolbar.add_tool('Estimate Derivative', 'custom')
         
         ax = fig.add_subplot(111)
         plt.title("Pump-probe Spectroscopy")

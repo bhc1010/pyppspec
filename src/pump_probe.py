@@ -3,24 +3,29 @@ import numpy as np
 from devices import RHK_R9, STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable
+from enum import Enum
 
-"""
-Defines an immutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
-"""
-@dataclass(frozen=True)
-class Pulse:
-    amp: float
-    width: float
-    edge: float
-    time_spread: float
-    
+class Channel(Enum):
+    PROBE = 1
+    PUMP = 2
+
 """
 Defines an immutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
 """
 @dataclass(frozen=True)
 class Procedure:
     call: Callable
-    conversion: float
+    conversion_factor: float
+
+"""
+Defines a mutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
+"""
+@dataclass()
+class Pulse:
+    amp: float
+    width: float
+    edge: float
+    time_spread: float
 
 """
 Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
@@ -29,12 +34,11 @@ Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse da
 @dataclass()
 class PumpProbeExperiment:
     procedure: Procedure
+    procedure_channel: Channel
     pump: Pulse
     probe: Pulse
-    sweep_interval: tuple
-    sweep_channel: int
+    domain: tuple
     samples: int
-    lockin_freq: int
     stm_coords: Vector2 = Vector2(0,0)
     name: str = ""
     
@@ -53,7 +57,7 @@ class PumpProbeExperiment:
         out += f"[Probe]\namp: {self.probe.amp}\nwidth: {self.probe.width}\nedge: {self.probe.edge}\n"
         out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\nlock-in freq: {self.lockin_freq}\n"
         return out
-    
+
 """
 Defines a mutable dataclass PumpProbeConfig to hold semi-constant (globally used for all experiments but can be mutated) pump-probe configuration data
 """
@@ -62,6 +66,7 @@ class PumpProbeConfig:
     stm_model: str
     lockin_ip: str
     lockin_port: int
+    lockin_freq: float
     awg_id: str
     sample_rate: float
     save_path: str = ""
@@ -76,15 +81,6 @@ class PumpProbe():
         self.stm: STM = RHK_R9()
         self.lockin: LockIn = LockIn(ip=config.lockin_ip, port=config.lockin_port)
         self.awg: AWG = AWG(id=config.awg_id)
-
-    """
-    """
-    def create_experiment(self, time_spread: float, pump_amp: float, pump_width:float, pump_edge:float, probe_amp:float, probe_width:float, probe_edge:float, 
-                        phase_range:float, samples:int, lockin_freq:int) -> PumpProbeExperiment:
-        pump = Pulse(amp=pump_amp, width=pump_width, edge=pump_edge, time_spread=time_spread)
-        probe = Pulse(amp=probe_amp, width=probe_width, edge=probe_edge, time_spread=time_spread)
-        coords = self.stm.get_position()
-        return PumpProbeExperiment(pump=pump, probe=probe, phase_range=phase_range, samples=samples, lockin_freq=lockin_freq, stm_coords=coords)
 
     """
     Returns a list of waveform points for a pulse. Minimum rise time, minimum pulse width, sample rate, and minimum arb length are hard coded from KeySight 33600A specs.
@@ -121,12 +117,10 @@ class PumpProbe():
         exp : PumpProbeExperiment to run
     """
     def run(self, exp:PumpProbeExperiment, new_arb:bool, plotter=None) -> Tuple[list, list]:
-        procedure = exp.procedure
-        conversion_factor = procedure.conversion
-        sweep_start = exp.sweep_interval[0]
-        sweep_end = exp.sweep_interval[1]
+        procedure = exp.procedure 
+        proc_start = exp.domain[0]
+        proc_end = exp.domain[1]
         samples = exp.samples
-        sweep_channel = exp.sweep_channel
         
         if new_arb:
             # Reset both devices
@@ -149,7 +143,7 @@ class PumpProbe():
             self.awg.set_amp(exp.pump.amp, 1)
             self.awg.set_amp(exp.probe.amp, 2)
 
-        sweep_range = np.linspace(sweep_start, sweep_end, samples)
+        proc_range = np.linspace(proc_start, proc_end, samples)
         
         data = list()
         x = list()
@@ -172,13 +166,13 @@ class PumpProbe():
         self.lockin.send('X.'.encode()).expected("Initial buffering message not sent.")
         time.sleep(0.2)
         self.lockin.recv(1024).expected("Initial buffering message not received.")
-        for i in range(len(sweep_range)):
+        for i in range(samples):
             # define x coordinate
-            dx = sweep_range[i] * conversion_factor
+            dx = proc_range[i] * procedure.conversion_factor
             x.append(dx)
             
             # Procedure done each dx
-            exp.procedure.call(sweep_range[i], sweep_channel)
+            procedure.call(proc_range[i], exp.procedure_channel.value())
             time.sleep(0.01)
 
             # Read value from lock-in
@@ -200,10 +194,9 @@ class PumpProbe():
         
         # Set bias to default
         self.stm.set_bias(prev_bias)
-        time.sleep(2)
+        time.sleep(1)
         
         # Set tip to unlimit
-        # NOTE: Commenting out so that the tip height is constant across runs. Tip must be manually put back into unlimit mode
         self.stm.set_tip_control("unlimit")
         
         return (dx, data)

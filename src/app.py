@@ -1,13 +1,13 @@
-from inspect import trace
 import os, traceback
+from xml import dom
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
-from pump_probe import Procedure, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse
-from devices import LockIn, AWG, RHK_R9
+from pump_probe import Procedure, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
 from datetime import datetime
 
 plt.ion()
@@ -91,56 +91,58 @@ class PumpProbeWorker(QtCore.QThread):
         while(len(self.queue.data) != 0 and self._running_pp):
             self._queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
             
+            experiments : list = self.queue.data[0]
+            
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
-            exp: PumpProbeExperiment = self.queue.data[0]
-            exp.name = str(datetime.now().strftime("%Y%m%d %H-%M-%S"))
-            
-            try:
-                prev_exp = self.pump_probe.prev_exp
-            except:
-                prev_exp = None 
+            for exp in experiments:
+                exp.name = str(datetime.now().strftime("%Y%m%d %H-%M-%S"))
                 
-            if prev_exp:
-                if exp.pump.edge != prev_exp.pump.edge or exp.pump.width != prev_exp.pump.width:
-                    self._new_arb = True
-                elif exp.probe.edge != prev_exp.probe.edge and exp.probe.width != prev_exp.probe.width:
-                    self._new_arb = True
-                elif exp.pump.time_spread != prev_exp.pump.time_spread:
-                    self._new_arb = True
-                else:
-                    self._new_arb = False
+                try:
+                    prev_exp = self.pump_probe.prev_exp
+                except:
+                    prev_exp = None 
+                    
+                if prev_exp:
+                    if exp.pump.edge != prev_exp.pump.edge or exp.pump.width != prev_exp.pump.width:
+                        self._new_arb = True
+                    elif exp.probe.edge != prev_exp.probe.edge and exp.probe.width != prev_exp.probe.width:
+                        self._new_arb = True
+                    elif exp.pump.time_spread != prev_exp.pump.time_spread:
+                        self._new_arb = True
+                    else:
+                        self._new_arb = False
 
 
-            # Make new figure 
-            self._make_figure.emit(exp.generate_toml())
-            
-            # Get tip position
-            exp.stm_coords = self.pump_probe.stm.get_position()
-            try:
-                self._progress.emit("Running pump-probe experiment.")
-                dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
-            except Exception as e:
-                traceback.print_exc()
-                msg = f"[ERROR] {e}. "
-                if "'send'" in repr(e):
-                    msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
-                elif "'write'" in repr(e):
-                    msg += " 'write' is an AWG method. Is the AWG connected properly?"
-                self._progress.emit(msg)
-                self._queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
-                self._running_pp = False
-                self._finished.emit()
-                return
-            
-            # Add zero line to plot
-            zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
-            plt.axvline(zero, color = 'r', linestyle='--')
-            
-            # Save data
-            self.save_data(exp, (dt, volt_data))
-            
-            # Check if next experiment in queue is a repeat arb
-            self.pump_probe.prev_exp = exp
+                # Make new figure 
+                self._make_figure.emit(exp.generate_toml())
+                
+                # Get tip position
+                exp.stm_coords = self.pump_probe.stm.get_position()
+                try:
+                    self._progress.emit("Running pump-probe experiment.")
+                    dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
+                except Exception as e:
+                    traceback.print_exc()
+                    msg = f"[ERROR] {e}. "
+                    if "'send'" in repr(e):
+                        msg += " 'send' is a Lock-in method. Is the Lock-in connected properly?"
+                    elif "'write'" in repr(e):
+                        msg += " 'write' is an AWG method. Is the AWG connected properly?"
+                    self._progress.emit(msg)
+                    self._queue_signal.emit(QtGui.QColor(QtCore.Qt.red))
+                    self._running_pp = False
+                    self._finished.emit()
+                    return
+                
+                # Add zero line to plot
+                zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
+                plt.axvline(zero, color = 'r', linestyle='--')
+                
+                # Save data
+                self.save_data(exp, (dt, volt_data))
+                
+                # Check if next experiment in queue is a repeat arb
+                self.pump_probe.prev_exp = exp
             
             # Remove experiment from queue data and top row
             del self.queue.data[0]
@@ -157,7 +159,6 @@ class SettingsDialog(QtWidgets.QDialog):
         self.setWindowTitle("Settings")
         self.setMinimumSize(450, 225)
         self.layout = QtWidgets.QFormLayout(self)
-        self.layout.setObjectName("layout")
         self.labels = list()
         self.keys = list()
         for i, key in enumerate(self.settings.allKeys()):
@@ -186,7 +187,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.setupUi()
         default_config = dict(stm_model="RHK R9", 
-                              lockin_ip = "169.254.11.17", lockin_port=50_000, 
+                              lockin_ip = "169.254.11.17", lockin_port=50_000, lockin_freq = 1007,
                               awg_id='USB0::0x0957::0x5707::MY53805152::INSTR', 
                               sample_rate=1e9, save_path="")
         
@@ -200,38 +201,54 @@ class MainWindow(QtWidgets.QMainWindow):
         for key in self.settings.allKeys():
             config[key] = self.settings.value(key, type=type(default_config[key]))
             print(f"{key} : {self.settings.value(key)} - {type(default_config[key])}")
+    
         
         self.PumpProbe = PumpProbe(PumpProbeConfig(**config))
         self.PumpProbe.plotter = QPlotter()
-        self.experiments = list()
-        
         self.retranslateUi()
+        self.procedure_dict = {'procedure' : 'Time delay', 'procedure_channel' : 'Probe',
+                               'procedure_start' : 0.0, 'procedure_end' : 0.0,
+                               'fixed_time_delay' : 0.0, 'sweep_parameter' : 'None', 'sweep_channel' : 'Pump',
+                               'sweep_start' : 0.0, 'sweep_end' : 0.0, 'sweep_increment' : 0.0}
 
     def setupUi(self):
-        self.setObjectName("MainWindow")
-        self.setFixedSize(1000, 570)
+        self.setFixedSize(1111, 751)
 
         self.centralwidget = QtWidgets.QWidget(self)
-        self.centralwidget.setObjectName("centralwidget")
         
-        self.add_to_queue = QtWidgets.QPushButton(self.centralwidget)
-        self.add_to_queue.setGeometry(QtCore.QRect(10, 475, 241, 41))
-        self.add_to_queue.setObjectName("add_to_queue")
+        # Procedure layout
+        self.procedure_layout = QtWidgets.QWidget(self.centralwidget)
+        self.procedure_layout.setGeometry(QtCore.QRect(10, 20, 251, 31))
+        self.procedure_layout = QtWidgets.QHBoxLayout(self.procedure_layout)
+        self.procedure_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.remove_from_queue = QtWidgets.QPushButton(self.centralwidget)
-        self.remove_from_queue.setGeometry(QtCore.QRect(270, 475, 241, 41))
-        self.remove_from_queue.setObjectName("remove_from_queue")
-
-        self.queue_btn = QtWidgets.QPushButton(self.centralwidget)
-        self.queue_btn.setGeometry(QtCore.QRect(744, 475, 241, 41))
-        self.queue_btn.setObjectName("queue_btn")
+        # Procedure selection
+        self.procedure_label = QtWidgets.QLabel(self.centralwidget)
+        self.procedure_layout.addWidget(self.procedure_label)
+        self.procedure = QtWidgets.QComboBox(self.centralwidget)
+        self.procedure.addItem("")
+        self.procedure.addItem("")
+        self.procedure.addItem("")
+        self.procedure_layout.addWidget(self.procedure)
+        self.procedure_layout.setStretch(1, 1)
+        
+        # Add procedure btn
+        self.add_procedure_btn = QtWidgets.QPushButton(self.centralwidget)
+        self.add_procedure_btn.setGeometry(QtCore.QRect(10, 580, 251, 51))
+        
+        # Remove procedure btn
+        self.remove_procedure_btn = QtWidgets.QPushButton(self.centralwidget)
+        self.remove_procedure_btn.setGeometry(QtCore.QRect(10, 640, 251, 51))
+        
+        # Run / stop procedures btn
+        self.procedure_btn = QtWidgets.QPushButton(self.centralwidget)
+        self.procedure_btn.setGeometry(QtCore.QRect(840, 640, 261, 51))
 
         # Table queue
         self.queue = QDataTable(self.centralwidget)
-        self.queue.setGeometry(QtCore.QRect(270, 30, 715, 435))
-        self.queue.setObjectName("queue")
+        self.queue.setGeometry(QtCore.QRect(280, 10, 821, 431))
         self.queue.setRowCount(1)
-        self.queue.setColumnCount(7)
+        self.queue.setColumnCount(8)
         self.queue.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(1, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(2, QtWidgets.QTableWidgetItem())
@@ -239,147 +256,222 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.setHorizontalHeaderItem(4, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(5, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(6, QtWidgets.QTableWidgetItem())
+        self.queue.setHorizontalHeaderItem(7, QtWidgets.QTableWidgetItem())
         self.queue.horizontalHeader().setVisible(True)
         self.queue.horizontalHeader().setCascadingSectionResizes(False)
         self.queue.verticalHeader().setVisible(True)
         
-        # Pump pulse  box
+        # Pump pulse box
         self.pump_box = QtWidgets.QGroupBox(self.centralwidget)
-        self.pump_box.setGeometry(QtCore.QRect(10, 10, 251, 131))
-        self.pump_box.setObjectName("pump_box")
+        self.pump_box.setGeometry(QtCore.QRect(10, 70, 251, 131))
 
         # Pump pulse box layout
         self.pump_box_layout = QtWidgets.QWidget(self.pump_box)
         self.pump_box_layout.setGeometry(QtCore.QRect(9, 29, 231, 91))
-        self.pump_box_layout.setObjectName("pump_box_layout")
         self.pump_box_layout = QtWidgets.QFormLayout(self.pump_box_layout)
         self.pump_box_layout.setContentsMargins(0, 0, 0, 0)
-        self.pump_box_layout.setObjectName("pump_box_layout")
 
         # Pump amplitude
         self.pump_amp_label = QtWidgets.QLabel(self.pump_box)
-        self.pump_amp_label.setObjectName("pump_amp_label")
         self.pump_box_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.pump_amp_label)
         self.pump_amp = QNumericalLineEdit(self.pump_box, QtGui.QDoubleValidator)
-        self.pump_amp.setObjectName("pump_amp")
         self.pump_box_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.pump_amp)
 
         # Pump width
         self.pump_width_label = QtWidgets.QLabel(self.pump_box)
-        self.pump_width_label.setObjectName("pump_width_label")
         self.pump_box_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.pump_width_label)
         self.pump_width = QNumericalLineEdit(self.pump_box, QtGui.QDoubleValidator)
-        self.pump_width.setObjectName("pump_width")
         self.pump_box_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.pump_width)
 
         # Pump edge
         self.pump_edge_layout = QtWidgets.QLabel(self.pump_box)
-        self.pump_edge_layout.setObjectName("pump_edge_layout")
         self.pump_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.pump_edge_layout)
         self.pump_edge = QNumericalLineEdit(self.pump_box, QtGui.QDoubleValidator)
-        self.pump_edge.setObjectName("pump_edge")
         self.pump_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.pump_edge)
 
         # Probe pulse box
         self.probe_box = QtWidgets.QGroupBox(self.centralwidget)
-        self.probe_box.setGeometry(QtCore.QRect(10, 150, 251, 131))
-        self.probe_box.setObjectName("probe_box")
+        self.probe_box.setGeometry(QtCore.QRect(10, 220, 251, 131))
 
         # Probe pulse box layout
         self.probe_box_layout = QtWidgets.QWidget(self.probe_box)
         self.probe_box_layout.setGeometry(QtCore.QRect(9, 29, 231, 91))
-        self.probe_box_layout.setObjectName("probe_box_layout")
         self.probe_box_layout = QtWidgets.QFormLayout(self.probe_box_layout)
         self.probe_box_layout.setContentsMargins(0, 0, 0, 0)
-        self.probe_box_layout.setObjectName("probe_box_layout")
 
         # Probe amplitude
         self.probe_amp_label = QtWidgets.QLabel(self.probe_box)
-        self.probe_amp_label.setObjectName("probe_amp_label")
         self.probe_box_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.probe_amp_label)
         self.probe_amp = QNumericalLineEdit(self.probe_box, QtGui.QDoubleValidator)
-        self.probe_amp.setObjectName("probe_amp")
         self.probe_box_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.probe_amp)
 
         # Probe width
         self.probe_width_label = QtWidgets.QLabel(self.probe_box)
-        self.probe_width_label.setObjectName("probe_width_label")
         self.probe_box_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.probe_width_label)
         self.probe_width = QNumericalLineEdit(self.probe_box, QtGui.QDoubleValidator)
-        self.probe_width.setObjectName("probe_width")
         self.probe_box_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.probe_width)
 
         # Probe edge
         self.probe_edge_label = QtWidgets.QLabel(self.probe_box)
-        self.probe_edge_label.setObjectName("probe_edge_label")
         self.probe_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.probe_edge_label)
         self.probe_edge = QNumericalLineEdit(self.probe_box, QtGui.QDoubleValidator)
-        self.probe_edge.setObjectName("probe_edge")
         self.probe_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.probe_edge)
 
-        # Layout for other settings
-        self.etc_layout = QtWidgets.QWidget(self.centralwidget)
-        self.etc_layout.setGeometry(QtCore.QRect(20, 290, 231, 175))
-        self.etc_layout.setObjectName("etc_layout")
-        self.etc_layout = QtWidgets.QFormLayout(self.etc_layout)
-        self.etc_layout.setContentsMargins(0, 0, 0, 0)
-        self.etc_layout.setObjectName("etc_layout")
-
-        # Pulse length
-        self.pulse_length_label = QtWidgets.QLabel(self)
-        self.pulse_length_label.setObjectName("pulse_length_label")
-        self.etc_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.pulse_length_label)
-        self.pulse_length = QNumericalLineEdit(self, QtGui.QDoubleValidator)
-        self.pulse_length.setObjectName("pulse_length")
-        self.etc_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.pulse_length)
-
-        # Samples
-        self.samples_label = QtWidgets.QLabel(self)
-        self.samples_label.setObjectName("samples_label")
-        self.etc_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.samples_label)
-        self.samples = QNumericalLineEdit(self, QtGui.QIntValidator)
-        self.samples.setObjectName("samples")
-        self.etc_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.samples)
+        # Procedure settings box
+        self.procedure_settings_box = QtWidgets.QGroupBox(self.centralwidget)
+        self.procedure_settings_box.setGeometry(QtCore.QRect(280, 450, 551, 241))
         
-        # Lock-in IP
-        self.lockin_ip_label = QtWidgets.QLabel(self)
-        self.lockin_ip_label.setObjectName("lockin_ip_label")
-        self.etc_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.lockin_ip_label)
-        self.lockin_ip = QtWidgets.QLineEdit(self)
-        self.lockin_ip.setObjectName("lockin_ip")
-        self.etc_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lockin_ip)
+        # Time delay settings layout
+        self.time_delay_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
+        self.time_delay_procedure_settings_layout_outer.setGeometry(QtCore.QRect(10, 30, 531, 201))
+        self.time_delay_procedure_settings_layout = QtWidgets.QGridLayout(self.time_delay_procedure_settings_layout_outer)
+        self.time_delay_procedure_settings_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Time spread
+        self.time_spread_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.time_delay_procedure_settings_layout.addWidget(self.time_spread_label, 0, 0, 1, 1)
+        self.time_spread = QNumericalLineEdit(self.time_delay_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.time_delay_procedure_settings_layout.addWidget(self.time_spread, 0, 1, 1, 1)
+        
+        # Time delay sample size
+        self.time_delay_sample_size_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.time_delay_procedure_settings_layout.addWidget(self.time_delay_sample_size_label, 1, 0, 1, 1)
+        self.time_delay_sample_size = QNumericalLineEdit(self.time_delay_procedure_settings_layout_outer, QtGui.QIntValidator)
+        self.time_delay_procedure_settings_layout.addWidget(self.time_delay_sample_size, 1, 1, 1, 1)
+        
+        # Time delay spacing
+        self.spacer = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.spacer.setText("")
+        self.time_delay_procedure_settings_layout.addWidget(self.spacer, 0, 2, 1, 1)
+        self.spacer_2 = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.spacer_2.setText("")
+        self.spacer_2.setObjectName("spacer_2")
+        self.time_delay_procedure_settings_layout.addWidget(self.spacer_2, 2, 0, 1, 1)
+        self.time_delay_procedure_settings_layout.setColumnStretch(2, 1)
+        
+        # Amplitude procedure settings layout
+        self.amp_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
+        self.amp_procedure_settings_layout_outer.setGeometry(QtCore.QRect(10, 30, 531, 201))
+        self.amp_procedure_settings_layout_outer.hide()
+        self.amp_procedure_settings_layout = QtWidgets.QGridLayout(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_settings_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Amp procedure channel
+        self.amp_procedure_channel_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_channel_label, 2, 0, 1, 1)
+        self.amp_procedure_channel = QtWidgets.QComboBox(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_channel.addItem("")
+        self.amp_procedure_channel.addItem("")
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_channel, 2, 1, 1, 1)
+        
+        # Amp procedure start
+        self.amp_procedure_start_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start_label, 3, 0, 1, 1)
+        self.amp_procedure_start = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start, 3, 1, 1, 1)        
+        
+        # Amp procedure end
+        self.amp_procedure_end_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end_label, 4, 0, 1, 1)
+        self.amp_procedure_end = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end, 4, 1, 1, 1)
+        
+        # Amp procedure fixed time delay
+        self.amp_procedure_fixed_time_delay_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay_label, 5, 0, 1, 1)
+        self.amp_procedure_fixed_time_delay = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay, 5, 1, 1, 1)
+        
+        
+        # Amp procedure sample size
+        self.amp_procedure_sample_size_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size_label, 6, 0, 1, 1)
+        self.amp_procedure_sample_size = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QIntValidator)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size, 6, 1, 1, 1)
+        
+        # Amp procedure spacing
+        self.amp_procedure_spacing = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_spacing.setText("")
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing, 2, 2, 1, 1)
+        self.amp_procedure_spacing_2 = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_spacing_2.setText("")
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing_2, 7, 0, 1, 1)
+        self.amp_procedure_settings_layout.setColumnStretch(2, 1)
+        self.amp_procedure_settings_layout.setRowStretch(7, 1)
+        
+        # Image procedure settings layout
+        self.image_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
+        self.image_procedure_settings_layout_outer.setGeometry(QtCore.QRect(10, 30, 531, 201))
+        self.image_procedure_settings_layout_outer.hide()
+        self.image_procedure_settings_layout = QtWidgets.QGridLayout(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Sweep box
+        self.sweep_box = QtWidgets.QGroupBox(self.centralwidget)
+        self.sweep_box.setGeometry(QtCore.QRect(10, 370, 251, 191))
+        self.sweep_box.setCheckable(True)
+        
+        # Sweep box layout
+        self.sweep_box_layout_outer = QtWidgets.QWidget(self.sweep_box)
+        self.sweep_box_layout_outer.setGeometry(QtCore.QRect(10, 30, 231, 151))
+        self.sweep_box_layout = QtWidgets.QFormLayout(self.sweep_box_layout_outer)
+        self.sweep_box_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Sweep parameter
+        self.sweep_parameter_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_box_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.sweep_parameter_label)
+        self.sweep_parameter = QtWidgets.QComboBox(self.sweep_box)
+        self.sweep_parameter.addItems(["" for _ in range(3)])
+        self.sweep_box_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.sweep_parameter)
+        
+        # Sweep channel
+        self.sweep_channel_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_box_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.sweep_channel_label)
+        self.sweep_channel = QtWidgets.QComboBox(self.sweep_box)
+        self.sweep_channel.addItems(["" for _ in range(3)])
+        self.sweep_box_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.sweep_channel)
+        
+        # Sweep start
+        self.sweep_start_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.sweep_start_label)
+        self.sweep_start = QNumericalLineEdit(self.sweep_box, QtGui.QDoubleValidator)
+        self.sweep_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.sweep_start)
+        
+        # Sweep end
+        self.sweep_end_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_box_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.sweep_end_label)
+        self.sweep_end = QNumericalLineEdit(self.sweep_box, QtGui.QDoubleValidator)
+        self.sweep_box_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.sweep_end)
+        
+        # Sweep increment
+        self.sweep_increment_label = QtWidgets.QLabel(self.sweep_box)
+        self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.sweep_increment_label)
+        self.sweep_increment = QNumericalLineEdit(self.sweep_box, QtGui.QDoubleValidator)
+        self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.sweep_increment)
 
-        # Lock-in Freq
-        self.lockin_freq_label = QtWidgets.QLabel(self)
-        self.lockin_freq_label.setObjectName("lockin_freq_label")
-        self.etc_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.lockin_freq_label)
-        self.lockin_freq = QNumericalLineEdit(self, QtGui.QDoubleValidator)
-        self.lockin_freq.setObjectName("lockin_freq")
-        self.etc_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.lockin_freq)
+        # Device status layout
+        self.device_status_layout = QtWidgets.QWidget(self.centralwidget)
+        self.device_status_layout.setGeometry(QtCore.QRect(840, 470, 261, 161))
+        self.device_status_layout = QtWidgets.QFormLayout(self.device_status_layout)
+        self.device_status_layout.setContentsMargins(0, 0, 0, 0)
 
         # Lock-in connection feedback
         self.lockin_status_label = QtWidgets.QLabel(self)
-        self.lockin_status_label.setObjectName("lockin_status_label")
-        self.etc_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.lockin_status_label)
+        self.device_status_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.lockin_status_label)
         self.lockin_status = QtWidgets.QLabel(self)
-        self.lockin_status.setObjectName("lockin_status")
-        self.etc_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.lockin_status)
+        self.device_status_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.lockin_status)
 
         # AWG connection feedback
         self.awg_status_label = QtWidgets.QLabel(self)
-        self.awg_status_label.setObjectName("awg_status_label")
-        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.awg_status_label)
+        self.device_status_layout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.awg_status_label)
         self.awg_status = QtWidgets.QLabel(self)
-        self.awg_status.setObjectName("awg_status")
-        self.etc_layout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.awg_status)
+        self.device_status_layout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.awg_status)
         
         # STM connection feedback
         self.stm_status_label = QtWidgets.QLabel(self)
-        self.stm_status_label.setObjectName("stm_status_label")
-        self.etc_layout.setWidget(6, QtWidgets.QFormLayout.LabelRole, self.stm_status_label)
+        self.device_status_layout.setWidget(6, QtWidgets.QFormLayout.LabelRole, self.stm_status_label)
         self.stm_status = QtWidgets.QLabel(self)
-        self.stm_status.setObjectName("stm_status")
-        self.etc_layout.setWidget(6, QtWidgets.QFormLayout.FieldRole, self.stm_status)
+        self.device_status_layout.setWidget(6, QtWidgets.QFormLayout.FieldRole, self.stm_status)
 
         # Set central widget
         self.setCentralWidget(self.centralwidget)
@@ -387,28 +479,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # Menu bar
         self.menubar = QtWidgets.QMenuBar(self)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 552, 22))
-        self.menubar.setObjectName("menubar")
         self.menu_file = QtWidgets.QMenu(self.menubar)
-        self.menu_file.setObjectName("menu_file")
         self.setMenuBar(self.menubar)
         
         # Status bar
         self.statusbar = QtWidgets.QStatusBar(self)
-        self.statusbar.setObjectName("statusbar")
         self.statusbar_divider = QtWidgets.QFrame(self.centralwidget)
-        self.statusbar_divider.setGeometry(QtCore.QRect(0, 515, 1201, 20))
+        self.statusbar_divider.setGeometry(QtCore.QRect(0, 690, 1201, 20))
         self.statusbar_divider.setFrameShape(QtWidgets.QFrame.HLine)
         self.statusbar_divider.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.statusbar_divider.setObjectName("statusbar_divider")
         self.setStatusBar(self.statusbar)
         
         # File menu actions
         self.action_set_save_path = QtWidgets.QAction(self)
-        self.action_set_save_path.setObjectName("action_set_save_path")
         self.action_reset_connected_devices = QtWidgets.QAction(self)
-        self.action_reset_connected_devices.setObjectName("action_reset_connected_devices")
         self.action_edit_settings = QtWidgets.QAction(self)
-        self.action_edit_settings.setObjectName("action_edit_settings")
         self.menu_file.addAction(self.action_set_save_path)
         self.menu_file.addAction(self.action_reset_connected_devices)
         self.menu_file.addAction(self.action_edit_settings)
@@ -418,45 +503,79 @@ class MainWindow(QtWidgets.QMainWindow):
         QtCore.QMetaObject.connectSlotsByName(self)
 
     def retranslateUi(self):
-        _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle("Pump Probe")
-        self.add_to_queue.setText("Add to queue")
-        self.remove_from_queue.setText("Remove from queue")
-        self.queue_btn.setText("Start queue")
+        self.setWindowTitle("All-Electronic Pump Probe Spectroscopy")
+        
+        self.procedure_label.setText("Procedure:")
+        self.procedure.setItemText(0, "Time delay")
+        self.procedure.setItemText(1, "Amplitude")
+        self.procedure.setItemText(2, "Image")
+        
+        self.add_procedure_btn.setText("Add procedure")
+        self.remove_procedure_btn.setText("Remove procedure")
+        self.procedure_btn.setText("Run procedures")
+        
         self.pump_box.setTitle("Pump")
         self.pump_amp_label.setText("Amplitude (V)     ")
         self.pump_width_label.setText("Width (s)")
         self.pump_edge_layout.setText("Edge (s)")
+        
         self.probe_box.setTitle("Probe")
         self.probe_amp_label.setText("Amplitude (V)     ")
         self.probe_width_label.setText("Width (s)")
         self.probe_edge_label.setText("Edge (s)")
-        self.pulse_length_label.setText("Pulse Length (s)")
-        self.samples_label.setText("Samples")
-        self.lockin_ip_label.setText("Lock-in IP")
-        self.lockin_ip.setText(self.settings.value('lockin_ip'))
+
+        self.procedure_settings_box.setTitle("Procedure settings")
+        
+        # Time delay procedure settings
+        self.time_spread_label.setText("Time spread:")
+        self.time_delay_sample_size_label.setText("Sample size:")
+        self.time_spread.setText("100e-9")
+        self.time_delay_sample_size.setText("500")
+        
+        # Amp procedure settings
+        self.amp_procedure_channel_label.setText("Channel:")
+        self.amp_procedure_channel.setItemText(0, "Probe")
+        self.amp_procedure_channel.setItemText(1, "Pump")
+        self.amp_procedure_start_label.setText("Amplitude start:")
+        self.amp_procedure_start.setText("0.0")
+        self.amp_procedure_end_label.setText("Amplitude end:")
+        self.amp_procedure_end.setText("1.0")
+        self.amp_procedure_fixed_time_delay_label.setText("Fixed time delay:")
+        self.amp_procedure_fixed_time_delay.setText("10e-9")
+        self.amp_procedure_sample_size_label.setText("Sample size:")
+        self.amp_procedure_sample_size.setText("500")
+        
+        self.sweep_box.setTitle("Sweep over multiple runs")
+        self.sweep_parameter_label.setText("Sweep parameter")
+        self.sweep_parameter.setItemText(0, "Amplitude")
+        self.sweep_parameter.setItemText(1, "Width")
+        self.sweep_parameter.setItemText(2, "Edge")
+        self.sweep_channel_label.setText("Sweep channel")
+        self.sweep_channel.setItemText(0, "Probe")
+        self.sweep_channel.setItemText(1, "Pump")
+        self.sweep_channel.setItemText(2, "Both")
+        self.sweep_start_label.setText("Sweep start")
+        self.sweep_end_label.setText("Sweep end")
+        self.sweep_increment_label.setText("Increment")
 
         # Queue headers
-        self.queue.horizontalHeaderItem(0).setText("Pump Amp")
-        self.queue.horizontalHeaderItem(1).setText("Pump Width")
-        self.queue.horizontalHeaderItem(2).setText("Pump Edge")
-        self.queue.horizontalHeaderItem(3).setText("Probe Amp")
-        self.queue.horizontalHeaderItem(4).setText("Probe Width")
-        self.queue.horizontalHeaderItem(5).setText("Probe Edge")
-        self.queue.horizontalHeaderItem(6).setText("Time Spread")
+        self.queue.horizontalHeaderItem(0).setText("Procedure")
+        self.queue.horizontalHeaderItem(1).setText("Pump Amp")
+        self.queue.horizontalHeaderItem(2).setText("Pump Width")
+        self.queue.horizontalHeaderItem(3).setText("Pump Edge")
+        self.queue.horizontalHeaderItem(4).setText("Probe Amp")
+        self.queue.horizontalHeaderItem(5).setText("Probe Width")
+        self.queue.horizontalHeaderItem(6).setText("Probe Edge")
+        self.queue.horizontalHeaderItem(7).setText("Domain")
 
         # Defaults
-        self.pump_amp.setText("0.145")
+        self.pump_amp.setText("0.5")
         self.pump_width.setText("10e-9")
         self.pump_edge.setText("3e-9")
-        self.probe_amp.setText("0.05")
+        self.probe_amp.setText("0.5")
         self.probe_width.setText("10e-9")
         self.probe_edge.setText("3e-9")
-        self.pulse_length.setText("100e-9")
-        self.lockin_freq.setText("1007")
-        self.samples.setText("400")
 
-        self.lockin_freq_label.setText("Lock-in Freq (Hz)")
         self.lockin_status_label.setText("Lock-in status: ")
         self.lockin_status.setText("Disconnected")
         self.awg_status_label.setText("AWG status: ")
@@ -469,10 +588,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_edit_settings.setText("Edit settings")
 
     def init_connections(self):
-        self.queue_btn.clicked.connect(self.start_queue_pushed)
-        self.add_to_queue.clicked.connect(self.add_to_queue_pushed)
-        self.remove_from_queue.clicked.connect(self.remove_from_queue_pushed)
-        self.lockin_ip.textChanged.connect(lambda ip=self.lockin_ip.text(): self.set_lockin_ip(ip=ip))
+        self.procedure.activated.connect(self.set_procedure_settings)
+        self.procedure_btn.clicked.connect(self.run_procedures)
+        self.add_procedure_btn.clicked.connect(self.add_procedure)
+        self.remove_procedure_btn.clicked.connect(self.remove_procedure)
+        self.amp_procedure_channel.activated.connect(self.amp_proc_ch_changed)
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
         self.action_edit_settings.triggered.connect(self.edit_settings)
@@ -503,6 +623,36 @@ class MainWindow(QtWidgets.QMainWindow):
     def report_progress(self, msg:str) -> None:
         print(f"{msg}")
         self.statusbar.showMessage(msg)
+
+    def set_procedure_settings(self):
+        self.time_delay_procedure_settings_layout_outer.hide()
+        self.amp_procedure_settings_layout_outer.hide()
+        self.image_procedure_settings_layout_outer.hide()
+        match self.procedure.currentText():
+            case "Time delay":
+                self.time_delay_procedure_settings_layout_outer.setHidden(False)
+                self.sweep_channel.setEnabled(True)
+            case "Amplitude":
+                self.amp_procedure_settings_layout_outer.setHidden(False)
+                if self.amp_procedure_channel.currentText() == "Probe":
+                    self.sweep_channel.setCurrentText("Pump")
+                else:
+                    self.sweep_channel.setCurrentText("Probe")
+                self.sweep_channel.setEnabled(False)
+            case "Image":
+                self.image_procedure_settings_layout_outer.setHidden(False)
+                self.sweep_channel.setEnabled(True)
+            case _:
+                pass
+
+    def amp_proc_ch_changed(self):
+        if self.amp_procedure_channel.currentText() == "Probe":
+            self.sweep_channel.setCurrentText("Pump")
+        else:
+            self.sweep_channel.setCurrentText("Probe")
+
+    def run_procedures(self):
+        pass
 
     """
     Called when 'Start queue' button is pressed. Handles running of pump-probe experiment on seperate QThread.
@@ -546,30 +696,151 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue_btn.setEnabled(False)
 
     """
-    Returns a dict containing all relevant experimental information to be displayed in the queue.
+    Returns a dict containing all relevant experimental information to be displayed in the queue. Dictionary keys correspond to column titles.
     TODO: should lock-in freq be included? (i.e. variable between experiments)
     """
     def get_experiment_dict(self) -> dict[str, str]:
-        return {'pump_amp': self.pump_amp.text(), 'pump_width': self.pump_width.text(), 'pump_edge': self.pump_edge.text(),
+        exp_dict = {'procedure' : self.procedure.currentText(),
+                'pump_amp': self.pump_amp.text(), 'pump_width': self.pump_width.text(), 'pump_edge': self.pump_edge.text(),
                 'probe_amp': self.probe_amp.text(), 'probe_width': self.probe_width.text(), 'probe_edge': self.probe_edge.text(),
-                'pulse_length': self.pulse_length.text()}
+                'domain': ''}
+                            
+        match exp_dict['procedure']:
+            case "Time delay":
+                exp_dict['domain'] = f'({-self.time_spread.value()/2}, {self.time_spread.value()/2})'
+            case "Amplitude":
+                exp_dict['domain'] = f'({self.amp_procedure_start.value()}, {self.amp_procedure_end.value()})'
+                if self.amp_procedure_channel.currentText() == "Pump":
+                    exp_dict['pump_amp'] = exp_dict['domain']
+                else:
+                    exp_dict['probe_amp'] = exp_dict['domain']
+            case "Image":
+                pass
+            case _:
+                pass                  
+        
+        sweep_param = self.sweep_parameter.currentText()
+        sweep_ch = self.sweep_channel.currentText()
+    
+        domain_str = f'{{{self.sweep_start.value()}, {self.sweep_end.value()}}} : {self.sweep_increment.value()}'
+        
+        if self.sweep_box.isChecked():
+            if sweep_param == "Amplitude":
+                if sweep_ch == "Pump":
+                    exp_dict['pump_amp'] = domain_str
+                elif sweep_ch == "Probe":
+                    exp_dict['probe_amp'] = domain_str
+                else:
+                    exp_dict['pump_amp'] = domain_str
+                    exp_dict['probe_amp'] = domain_str
+            elif sweep_param == "Width":
+                if sweep_ch == "Pump":
+                    exp_dict['pump_width'] = domain_str
+                elif sweep_ch == "Probe":
+                    exp_dict['probe_width'] = domain_str
+                else:
+                    exp_dict['pump_width'] = domain_str
+                    exp_dict['probe_width'] = domain_str
+            elif sweep_param == "Edge":
+                if sweep_ch == "Pump":
+                    exp_dict['pump_edge'] = domain_str
+                elif sweep_ch == "Probe":
+                    exp_dict['probe_edge'] = domain_str
+                else:
+                    exp_dict['pump_edge'] = domain_str
+                    exp_dict['probe_edge'] = domain_str                    
+        
+        return exp_dict
 
     """
-    Called when 'Add to queue' button is pressed. Creates two Pulse objects and a PumpProbeExperiment which gets passed to the queue via QDataTable.add_item().
+    Called when 'Add procedure' button is pressed. Creates a list of PumpProbeExperiments which gets passed to the queue via QDataTable.add_item().
     The row information is in the form of a QDataTableRow object which gets passed a dictionary from get_experiment_dict(). This allows the information 
     presented in the row be equivalent to what the user inputed (i.e. 100e-9 -> 100e-9 and not 100e-9 -> 1e-7). The new PumpProbeExperiment is instantiated
     with float values and added to the QDataTable's data array via QDataTable.add_item(..., data = PumpProbeExperiment(...))
-    TODO: Samples and lock-in freq should be set at the moment the data is taken? Or should they be part of the PumpProbeExperiment (i.e. have table cells)?
-    """
-    def add_to_queue_pushed(self):
-        procedure = self.sweep_phase_procedure()
-        pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.pulse_length.value())
-        probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.pulse_length.value())
-        new_experiment = PumpProbeExperiment(procedure=procedure, pump=pump_pulse, probe=probe_pulse, sweep_interval=(-180,180), sweep_channel=1, samples=self.samples.value(), lockin_freq=self.lockin_freq.value())
-        self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = new_experiment)
-        self.statusbar.showMessage("New experiment added to queue.")
-        print(f"New experiment added to queue: {self.queue.data[-1]}")
+    """    
+    def add_procedure(self):
+        steps = 1
+        experiments = list()
+        procedure = self.get_selected_procedure()
         
+        if self.sweep_box.isChecked():
+            steps += int((self.sweep_end.value() - self.sweep_start.value()) // self.sweep_increment.value())
+            sweep_range = np.linspace(self.sweep_start.value(), self.sweep_end.value(), steps)
+        
+        sweep_param = self.sweep_parameter.currentText()
+        sweep_ch = self.sweep_channel.currentText()
+        
+        for i in range(steps):
+            pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), 100e-9)
+            probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), 100e-9)
+            if self.sweep_box.isChecked():
+                if sweep_param == "Amplitude":
+                    if sweep_ch == "Pump":
+                        pump_pulse.amp = sweep_range[i]
+                    elif sweep_ch == "Probe":
+                        probe_pulse.amp = sweep_range[i]
+                    else:
+                        pump_pulse.amp = sweep_range[i]
+                        probe_pulse.amp = sweep_range[i]
+                elif sweep_param == "Width":
+                    if sweep_ch == "Pump":
+                        pump_pulse.width = sweep_range[i]
+                    elif sweep_ch == "Probe":
+                        probe_pulse.width = sweep_range[i]
+                    else:
+                        pump_pulse.width = sweep_range[i]
+                        probe_pulse.width = sweep_range[i]
+                elif sweep_param == "Edge":
+                    if sweep_ch == "Pump":
+                        pump_pulse.edge = sweep_range[i]
+                    elif sweep_ch == "Probe":
+                        probe_pulse.edge = sweep_range[i]
+                    else:
+                        pump_pulse.edge = sweep_range[i]
+                        probe_pulse.edge = sweep_range[i]                        
+
+            match self.procedure.currentText():
+                case "Time delay":
+                    samples = self.time_delay_sample_size.value()
+                    domain = (-180, 180)
+                    procedure_channel = Channel.PROBE
+                case "Amplitude":
+                    samples = self.amp_procedure_sample_size.value()
+                    domain = (self.amp_procedure_start.value(), self.amp_procedure_end.value())
+                    if self.amp_procedure_channel.currentText() == "Probe":
+                        procedure_channel = Channel.PROBE
+                        probe_pulse.amp = domain[0]
+                    else:
+                        procedure_channel = Channel.PUMP
+                        pump_pulse.amp = domain[0]
+                case "Image":
+                    procedure_channel = Channel.PROBE
+                    domain = (-180, 180)
+                    pass
+                case _:
+                    pass
+                
+
+            new_experiment = PumpProbeExperiment(procedure=procedure, procedure_channel=procedure_channel, pump=pump_pulse, probe=probe_pulse, domain=domain, samples=samples)
+            experiments.append(new_experiment)
+        for exp in experiments:
+            print(exp)
+        self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = experiments)
+
+    """
+    """
+    def remove_procedure(self):
+        pass
+
+    def get_selected_procedure(self):
+        match self.procedure.currentText():
+            case "Time delay":
+                return self.sweep_phase_procedure()
+            case "Amplitude":
+                return self.sweep_amp_procedure()
+            case _:
+                return None
+
     def remove_from_queue_pushed(self):
         rowIdx = self.queue.currentRow()
         if rowIdx >= 0:
@@ -595,7 +866,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.report_progress("Settings updated.")
             
     def sweep_phase_procedure(self) -> Procedure:
-        return Procedure(self.PumpProbe.awg.set_phase, conversion=self.pulse_length.value() / 360 * self.PumpProbe.config.sample_rate)
+        return Procedure(self.PumpProbe.awg.set_phase, conversion_factor=100e-9 / 360 * self.PumpProbe.config.sample_rate)
     
     def sweep_amp_procedure(self) -> Procedure:
-        return Procedure(self.PumpProbe.awg.set_amp, conversion=self.PumpProbe.config.sample_rate)
+        return Procedure(self.PumpProbe.awg.set_amp, conversion_factor=1.0)
