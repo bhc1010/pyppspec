@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
+from extend_qt import QDataTable, QDataTableRow, QPlotter
 from pump_probe import Procedure, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
 from scientific_spinbox import ScienDSpinBox
 from datetime import datetime

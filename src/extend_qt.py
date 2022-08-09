@@ -5,26 +5,6 @@ plt.rcParams['toolbar'] = 'toolmanager'
 from matplotlib.backend_tools import ToolBase
 from PyQt5 import QtWidgets, QtGui, QtCore
 
-class QNumericalLineEdit(QtWidgets.QLineEdit):
-    def __init__(self, parent: QtWidgets.QWidget, validator:QtGui.QValidator):
-        super().__init__(parent)
-        self.setValidator(validator())
-
-    def value(self):
-        val = self.text()
-        if val == '':
-            val = 0
-        match self.validator():
-            case QtGui.QIntValidator():
-                return int(val)
-            case QtGui.QDoubleValidator():
-                return float(val)
-            case _:
-                return str(val)
-    
-    def setValue(self, val):
-        self.setText(str(val))
-
 class QDataTableRow():
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
