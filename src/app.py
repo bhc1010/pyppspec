@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QNumericalLineEdit, QPlotter
 from pump_probe import Procedure, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
+from scientific_spinbox import ScienDSpinBox
 from datetime import datetime
 
 plt.ion()
@@ -210,7 +211,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.procedure_dict = {'procedure' : 'Time delay', 'procedure_channel' : 'Probe',
                                'procedure_start' : 0.0, 'procedure_end' : 0.0,
                                'fixed_time_delay' : 0.0, 'sweep_parameter' : 'None', 'sweep_channel' : 'Pump',
-                               'sweep_start' : 0.0, 'sweep_end' : 0.0, 'sweep_increment' : 0.0}
+                               'sweep_start' : 0.0, 'sweep_end' : 0.0, 'sweep_step' : 0.0}
     """
     """
     def setupUi(self):
@@ -276,19 +277,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # Pump amplitude
         self.pump_amp_label = QtWidgets.QLabel(self.pump_box)
         self.pump_box_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.pump_amp_label)
-        self.pump_amp = QNumericalLineEdit(self.pump_box, QtGui.QDoubleValidator)
+        self.pump_amp = ScienDSpinBox(parent=self.pump_box)
         self.pump_box_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.pump_amp)
 
         # Pump width
         self.pump_width_label = QtWidgets.QLabel(self.pump_box)
         self.pump_box_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.pump_width_label)
-        self.pump_width = QNumericalLineEdit(self.pump_box, QtGui.QDoubleValidator)
+        self.pump_width = ScienDSpinBox(parent=self.pump_box)
         self.pump_box_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.pump_width)
 
         # Pump edge
         self.pump_edge_layout = QtWidgets.QLabel(self.pump_box)
         self.pump_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.pump_edge_layout)
-        self.pump_edge = QNumericalLineEdit(self.pump_box, QtGui.QDoubleValidator)
+        self.pump_edge = ScienDSpinBox(parent=self.pump_box)
         self.pump_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.pump_edge)
 
         # Probe pulse box
@@ -304,19 +305,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # Probe amplitude
         self.probe_amp_label = QtWidgets.QLabel(self.probe_box)
         self.probe_box_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.probe_amp_label)
-        self.probe_amp = QNumericalLineEdit(self.probe_box, QtGui.QDoubleValidator)
+        self.probe_amp = ScienDSpinBox(parent=self.probe_box)
         self.probe_box_layout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.probe_amp)
 
         # Probe width
         self.probe_width_label = QtWidgets.QLabel(self.probe_box)
         self.probe_box_layout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.probe_width_label)
-        self.probe_width = QNumericalLineEdit(self.probe_box, QtGui.QDoubleValidator)
+        self.probe_width = ScienDSpinBox(parent=self.probe_box)
         self.probe_box_layout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.probe_width)
 
         # Probe edge
         self.probe_edge_label = QtWidgets.QLabel(self.probe_box)
         self.probe_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.probe_edge_label)
-        self.probe_edge = QNumericalLineEdit(self.probe_box, QtGui.QDoubleValidator)
+        self.probe_edge = ScienDSpinBox(parent=self.probe_box)
         self.probe_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.probe_edge)
 
         # Procedure settings box
@@ -332,13 +333,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Time spread
         self.time_spread_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
         self.time_delay_procedure_settings_layout.addWidget(self.time_spread_label, 0, 0, 1, 1)
-        self.time_spread = QNumericalLineEdit(self.time_delay_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.time_spread = ScienDSpinBox(parent=self.time_delay_procedure_settings_layout_outer)
         self.time_delay_procedure_settings_layout.addWidget(self.time_spread, 0, 1, 1, 1)
         
         # Time delay sample size
         self.time_delay_sample_size_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
         self.time_delay_procedure_settings_layout.addWidget(self.time_delay_sample_size_label, 1, 0, 1, 1)
-        self.time_delay_sample_size = QNumericalLineEdit(self.time_delay_procedure_settings_layout_outer, QtGui.QIntValidator)
+        self.time_delay_sample_size = QtWidgets.QSpinBox(self.time_delay_procedure_settings_layout_outer)
+        self.time_delay_sample_size.setMaximum(9999)
         self.time_delay_procedure_settings_layout.addWidget(self.time_delay_sample_size, 1, 1, 1, 1)
         
         # Time delay spacing
@@ -349,7 +351,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.spacer_2.setText("")
         self.spacer_2.setObjectName("spacer_2")
         self.time_delay_procedure_settings_layout.addWidget(self.spacer_2, 2, 0, 1, 1)
-        self.time_delay_procedure_settings_layout.setColumnStretch(2, 1)
+        # self.time_delay_procedure_settings_layout.setColumnStretch(2, 1)
         
         # Amplitude procedure settings layout
         self.amp_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
@@ -369,26 +371,27 @@ class MainWindow(QtWidgets.QMainWindow):
         # Amp procedure start
         self.amp_procedure_start_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start_label, 3, 0, 1, 1)
-        self.amp_procedure_start = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.amp_procedure_start = ScienDSpinBox(parent=self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start, 3, 1, 1, 1)        
         
         # Amp procedure end
         self.amp_procedure_end_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end_label, 4, 0, 1, 1)
-        self.amp_procedure_end = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.amp_procedure_end = ScienDSpinBox(parent=self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end, 4, 1, 1, 1)
         
         # Amp procedure fixed time delay
         self.amp_procedure_fixed_time_delay_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay_label, 5, 0, 1, 1)
-        self.amp_procedure_fixed_time_delay = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QDoubleValidator)
+        self.amp_procedure_fixed_time_delay = ScienDSpinBox(parent=self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay, 5, 1, 1, 1)
         
         
         # Amp procedure sample size
         self.amp_procedure_sample_size_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size_label, 6, 0, 1, 1)
-        self.amp_procedure_sample_size = QNumericalLineEdit(self.amp_procedure_settings_layout_outer, QtGui.QIntValidator)
+        self.amp_procedure_sample_size = QtWidgets.QSpinBox(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_sample_size.setMaximum(9999)
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size, 6, 1, 1, 1)
         
         # Amp procedure spacing
@@ -398,8 +401,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.amp_procedure_spacing_2 = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_spacing_2.setText("")
         self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing_2, 7, 0, 1, 1)
-        self.amp_procedure_settings_layout.setColumnStretch(2, 1)
-        self.amp_procedure_settings_layout.setRowStretch(7, 1)
         
         # Image procedure settings layout
         self.image_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
@@ -407,6 +408,53 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_procedure_settings_layout_outer.hide()
         self.image_procedure_settings_layout = QtWidgets.QGridLayout(self.image_procedure_settings_layout_outer)
         self.image_procedure_settings_layout.setContentsMargins(0, 0, 0, 0)
+        # self.image_procedure_settings_layout.setHorizontalSpacing(24)
+        
+        # Image frames
+        self.image_frames_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_frames_label, 0, 0, 1, 1)
+        self.image_frames = QtWidgets.QSpinBox(self.image_procedure_settings_layout_outer)
+        self.image_frames.setMaximum(1024)
+        self.image_procedure_settings_layout.addWidget(self.image_frames, 0, 1, 1, 1)
+
+        # Image lines per frame
+        self.image_lines_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_lines_label, 1, 0, 1, 1)
+        self.image_lines = QtWidgets.QSpinBox(self.image_procedure_settings_layout_outer)
+        self.image_lines.setMaximum(1024)
+        self.image_procedure_settings_layout.addWidget(self.image_lines, 1, 1, 1, 1)
+
+        # Image Size
+        self.image_size_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_size_label, 2, 0, 1, 1)
+        self.image_size = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_size, 2, 1, 1, 1)
+        
+        # Image X Offset
+        self.image_x_offset_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_x_offset_label, 3, 0, 1, 1)
+        self.image_x_offset = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_x_offset, 3, 1, 1, 1)
+
+        # Image Y Offset
+        self.image_y_offset_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_y_offset_label, 4, 0, 1, 1)
+        self.image_y_offset = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_y_offset, 4, 1, 1, 1)
+
+        # Image scane speed
+        self.image_scan_speed_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_scan_speed_label, 5, 0, 1, 1)
+        self.image_scan_speed = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_scan_speed, 5, 1, 1, 1)
+
+        # Image procedure spacing
+        self.spacer_y = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.spacer_y.setText("")
+        self.image_procedure_settings_layout.addWidget(self.spacer_y, 6, 0, 1, 1)
+        self.spacer_x = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.spacer_x.setText("")
+        self.image_procedure_settings_layout.addWidget(self.spacer_x, 0, 2, 1, 1)
         
         # Sweep box
         self.sweep_box = QtWidgets.QGroupBox(self.centralwidget)
@@ -440,20 +488,20 @@ class MainWindow(QtWidgets.QMainWindow):
         # Sweep start
         self.sweep_start_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.sweep_start_label)
-        self.sweep_start = QNumericalLineEdit(self.sweep_box_vlayout_outer, QtGui.QDoubleValidator)
+        self.sweep_start = ScienDSpinBox(parent=self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.sweep_start)
         
         # Sweep end
         self.sweep_end_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.sweep_end_label)
-        self.sweep_end = QNumericalLineEdit(self.sweep_box_vlayout_outer, QtGui.QDoubleValidator)
+        self.sweep_end = ScienDSpinBox(parent=self.sweep_box_vlayout_outer)
         self.sweep_box_layout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.sweep_end)
         
         # Sweep increment
-        self.sweep_increment_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
-        self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.sweep_increment_label)
-        self.sweep_increment = QNumericalLineEdit(self.sweep_box_vlayout_outer, QtGui.QDoubleValidator)
-        self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.sweep_increment)
+        self.sweep_step_label = QtWidgets.QLabel(self.sweep_box_vlayout_outer)
+        self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.sweep_step_label)
+        self.sweep_step = ScienDSpinBox(parent=self.sweep_box_vlayout_outer)
+        self.sweep_box_layout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.sweep_step)
         
         # Overlay runs on same figure checkbox
         self.overlay_checkbox = QtWidgets.QCheckBox(self.sweep_box_vlayout_outer)
@@ -527,35 +575,37 @@ class MainWindow(QtWidgets.QMainWindow):
         self.procedure_btn.setText("Run procedures")
         
         self.pump_box.setTitle("Pump")
-        self.pump_amp_label.setText("Amplitude (V)     ")
-        self.pump_width_label.setText("Width (s)")
-        self.pump_edge_layout.setText("Edge (s)")
+        self.pump_amp_label.setText("Amplitude         ")
+        self.pump_width_label.setText("Width")
+        self.pump_edge_layout.setText("Edge")
         
         self.probe_box.setTitle("Probe")
-        self.probe_amp_label.setText("Amplitude (V)     ")
-        self.probe_width_label.setText("Width (s)")
-        self.probe_edge_label.setText("Edge (s)")
+        self.probe_amp_label.setText("Amplitude         ")
+        self.probe_width_label.setText("Width")
+        self.probe_edge_label.setText("Edge")
 
         self.procedure_settings_box.setTitle("Procedure settings")
         
         # Time delay procedure settings
         self.time_spread_label.setText("Time spread:")
         self.time_delay_sample_size_label.setText("Sample size:")
-        self.time_spread.setText("100e-9")
-        self.time_delay_sample_size.setText("500")
         
         # Amp procedure settings
         self.amp_procedure_channel_label.setText("Channel:")
         self.amp_procedure_channel.setItemText(0, "Probe")
         self.amp_procedure_channel.setItemText(1, "Pump")
         self.amp_procedure_start_label.setText("Amplitude start:")
-        self.amp_procedure_start.setText("0.0")
         self.amp_procedure_end_label.setText("Amplitude end:")
-        self.amp_procedure_end.setText("1.0")
         self.amp_procedure_fixed_time_delay_label.setText("Fixed time delay:")
-        self.amp_procedure_fixed_time_delay.setText("10e-9")
         self.amp_procedure_sample_size_label.setText("Sample size:")
-        self.amp_procedure_sample_size.setText("500")
+        
+        # Image procedure settings
+        self.image_frames_label.setText("Frames:")
+        self.image_lines_label.setText("Lines per frame:")
+        self.image_size_label.setText("Size:")
+        self.image_x_offset_label.setText("X Offset:")
+        self.image_y_offset_label.setText("Y Offset:")
+        self.image_scan_speed_label.setText("Scan speed:")
         
         self.sweep_box.setTitle("Sweep over multiple runs")
         self.sweep_parameter_label.setText("Sweep parameter")
@@ -568,7 +618,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sweep_channel.setItemText(2, "Both")
         self.sweep_start_label.setText("Sweep start")
         self.sweep_end_label.setText("Sweep end")
-        self.sweep_increment_label.setText("Increment")
+        self.sweep_step_label.setText("Sweep step")
         self.overlay_checkbox.setText("Overlay runs on same figure")
 
         # Queue headers
@@ -582,12 +632,61 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.horizontalHeaderItem(7).setText("Domain")
 
         # Defaults
-        self.pump_amp.setText("0.5")
-        self.pump_width.setText("10e-9")
-        self.pump_edge.setText("3e-9")
-        self.probe_amp.setText("0.5")
-        self.probe_width.setText("10e-9")
-        self.probe_edge.setText("3e-9")
+        self.pump_amp.setValue(0.5)
+        self.pump_amp.setSuffix('V')
+        
+        self.pump_width.setValue(10e-9)
+        self.pump_width.setSuffix('s')
+        
+        self.pump_edge.setValue(3e-9)
+        self.pump_edge.setSuffix('s')
+        
+        self.probe_amp.setValue(0.5)
+        self.probe_amp.setSuffix('V')
+        
+        self.probe_width.setValue(10e-9)
+        self.probe_width.setSuffix('s')
+
+        self.probe_edge.setValue(3e-9)
+        self.probe_edge.setSuffix('s')
+        
+        self.sweep_start.setValue(0.0)
+        self.sweep_start.setSuffix('V')
+        
+        self.sweep_end.setValue(1.0)
+        self.sweep_end.setSuffix('V')
+        
+        self.sweep_step.setValue(0.1)
+        self.sweep_step.setSuffix('V')
+        
+        self.time_spread.setValue(100e-9)
+        self.time_spread.setSuffix('s')
+        
+        self.time_delay_sample_size.setValue(500)
+        
+        self.amp_procedure_start.setValue(0.0)
+        self.amp_procedure_start.setSuffix('V')
+        
+        self.amp_procedure_end.setValue(1.0)
+        self.amp_procedure_end.setSuffix('V')
+        
+        self.amp_procedure_fixed_time_delay.setValue(10e-9)
+        self.amp_procedure_fixed_time_delay.setSuffix('s')
+        
+        self.amp_procedure_sample_size.setValue(500)
+        
+        self.image_frames.setValue(512)
+        self.image_lines.setValue(512)
+        self.image_size.setValue(10e-9)
+        self.image_size.setSuffix('m')
+        self.image_x_offset.setValue(0.0)
+        self.image_x_offset.setSuffix('m')
+        self.image_x_offset.setMaximum(999e-6)
+        self.image_y_offset.setValue(0.0)
+        self.image_y_offset.setSuffix('m')
+        self.image_y_offset.setMaximum(999e-6)
+        self.image_scan_speed.setValue(0.0)
+        self.image_scan_speed.setSuffix('m/s')
 
         self.lockin_status_label.setText("Lock-in status: ")
         self.lockin_status.setText("Disconnected")
@@ -603,11 +702,17 @@ class MainWindow(QtWidgets.QMainWindow):
     """
     """
     def init_connections(self):
+        # Buttons
         self.procedure.activated.connect(self.set_procedure_settings)
         self.procedure_btn.clicked.connect(self.run_procedures)
         self.add_procedure_btn.clicked.connect(self.add_procedure)
         self.remove_procedure_btn.clicked.connect(self.remove_procedure)
+        
+        # Combobox activations
         self.amp_procedure_channel.activated.connect(self.amp_proc_ch_changed)
+        self.sweep_parameter.activated.connect(self.sweep_param_changed)
+        
+        # Menu actions
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
         self.action_edit_settings.triggered.connect(self.edit_settings)
@@ -669,7 +774,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.sweep_channel.setEnabled(True)
             case _:
                 pass
-            
+    
+    def sweep_param_changed(self):
+        """
+        """
+        if self.sweep_parameter.currentText() == 'Amplitude':
+            self.set_sweep_suffix('V')
+        else:
+            self.set_sweep_suffix('s')                
+     
+    def set_sweep_suffix(self, suffix: str):
+        self.sweep_start.setSuffix(suffix)
+        self.sweep_end.setSuffix(suffix)
+        self.sweep_step.setSuffix(suffix)
+    
     """
     """
     def amp_proc_ch_changed(self):
@@ -678,10 +796,10 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.sweep_channel.setCurrentText("Probe")
 
-    """
-    Called when 'Run procedures' button is pressed. Handles running of pump-probe experiment on seperate QThread.
-    """
     def run_procedures(self):
+        """
+        Called when 'Run procedures' button is pressed. Handles running of pump-probe experiment on seperate QThread.
+        """
         while self.PumpProbe.config.save_path == "":
             self.set_save_path()
         self.plotter = QPlotter()
@@ -702,38 +820,38 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.procedure_btn.setText("Stop procedures")
         self.procedure_btn.clicked.disconnect()
-        self.procedure_btn.clicked.connect(self.stop_queue_pushed)
+        self.procedure_btn.clicked.connect(self.stop_procedures)
 
         self.worker._finished.connect(lambda: self.procedure_btn.setText("Run procedures"))
         self.worker._finished.connect(lambda: self.procedure_btn.setEnabled(True))
         self.worker._finished.connect(lambda: self.procedure_btn.clicked.disconnect())
-        self.worker._finished.connect(lambda: self.procedure_btn.clicked.connect(self.start_queue_pushed))
+        self.worker._finished.connect(lambda: self.procedure_btn.clicked.connect(self.run_procedures))
         
         self.worker.start()
 
-    """
-    Called when 'Stop queue' button is pushed. Emits hook signal to stop queue after current experiment is finished.
-    """
-    def stop_queue_pushed(self):
+    def stop_procedures(self):
+        """
+        Called when 'Stop procedures' button is pushed. Emits hook signal to stop queue after current experiment is finished.
+        """
         self._hook.emit()
         self._hook.disconnect()
         self.procedure_btn.setEnabled(False)
 
-    """
-    Returns a dict containing all relevant experimental information to be displayed in the queue. Dictionary keys correspond to column titles.
-    TODO: should lock-in freq be included? (i.e. variable between experiments)
-    """
     def get_experiment_dict(self) -> dict[str, str]:
+        """
+        Returns a dict containing all relevant experimental information to be displayed in the queue. Dictionary keys correspond to column titles.
+        """
         exp_dict = {'procedure' : self.procedure.currentText(),
                 'pump_amp': self.pump_amp.text(), 'pump_width': self.pump_width.text(), 'pump_edge': self.pump_edge.text(),
                 'probe_amp': self.probe_amp.text(), 'probe_width': self.probe_width.text(), 'probe_edge': self.probe_edge.text(),
                 'domain': ''}
-                            
+        
         match exp_dict['procedure']:
             case "Time delay":
-                exp_dict['domain'] = f'({-self.time_spread.value()/2}, {self.time_spread.value()/2})'
+                bound = self.time_spread.textFromValue(self.time_spread.value()/2)
+                exp_dict['domain'] = f'(-{bound}s, {bound}s)'
             case "Amplitude":
-                exp_dict['domain'] = f'({self.amp_procedure_start.value()}, {self.amp_procedure_end.value()})'
+                exp_dict['domain'] = f'({self.amp_procedure_start.text()}, {self.amp_procedure_end.text()})'
                 if self.amp_procedure_channel.currentText() == "Pump":
                     exp_dict['pump_amp'] = exp_dict['domain']
                 else:
@@ -746,7 +864,7 @@ class MainWindow(QtWidgets.QMainWindow):
         sweep_param = self.sweep_parameter.currentText()
         sweep_ch = self.sweep_channel.currentText()
     
-        domain_str = f'{{{self.sweep_start.value()}, {self.sweep_end.value()}}} : {self.sweep_increment.value()}'
+        domain_str = f'{{{self.sweep_start.text()}, {self.sweep_end.text()}}} : {self.sweep_step.text()}'
         
         if self.sweep_box.isChecked():
             if sweep_param == "Amplitude":
@@ -776,19 +894,19 @@ class MainWindow(QtWidgets.QMainWindow):
         
         return exp_dict
 
-    """
-    Called when 'Add procedure' button is pressed. Creates a list of PumpProbeExperiments which gets passed to the queue via QDataTable.add_item().
-    The row information is in the form of a QDataTableRow object which gets passed a dictionary from get_experiment_dict(). This allows the information 
-    presented in the row be equivalent to what the user inputed (i.e. 100e-9 -> 100e-9 and not 100e-9 -> 1e-7). The new PumpProbeExperiment is instantiated
-    with float values and added to the QDataTable's data array via QDataTable.add_item(..., data = PumpProbeExperiment(...))
-    """    
     def add_procedure(self):
+        """
+        Called when 'Add procedure' button is pressed. Creates a list of PumpProbeExperiments which gets passed to the queue via QDataTable.add_item().
+        The row information is in the form of a QDataTableRow object which gets passed a dictionary from get_experiment_dict(). This allows the information 
+        presented in the row be equivalent to what the user inputed (i.e. 100e-9 -> 100e-9 and not 100e-9 -> 1e-7). The new PumpProbeExperiment is instantiated
+        with float values and added to the QDataTable's data array via QDataTable.add_item(..., data = PumpProbeExperiment(...))
+        """    
         steps = 1
         experiments = list()
         procedure = self.get_selected_procedure()
         
         if self.sweep_box.isChecked():
-            steps += int((self.sweep_end.value() - self.sweep_start.value()) // self.sweep_increment.value())
+            steps += int((self.sweep_end.value() - self.sweep_start.value()) // self.sweep_step.value())
             sweep_range = np.linspace(self.sweep_start.value(), self.sweep_end.value(), steps)
         
         sweep_param = self.sweep_parameter.currentText()
@@ -847,8 +965,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
             new_experiment = PumpProbeExperiment(procedure=procedure, procedure_channel=procedure_channel, pump=pump_pulse, probe=probe_pulse, domain=domain, samples=samples)
             experiments.append(new_experiment)
+        print("Added to queue:")
         for exp in experiments:
-            print(exp)
+            print(f'[ADDED] {exp}')
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = experiments)
 
     """
@@ -860,7 +979,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.queue.removeRow(rowIdx)
             # Remove experiment from queue data
             self.statusbar.showMessage("Experiment removed from queue.")
-            print(f"Experiment removed from queue: {self.queue.data[rowIdx]}")
+            print("Experiment removed from queue:")
+            for exp in self.queue.data[rowIdx]:
+                print(f'[REMOVED] {exp}')
             del self.queue.data[rowIdx]
 
     """
