@@ -344,14 +344,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.time_delay_procedure_settings_layout.addWidget(self.time_delay_sample_size, 1, 1, 1, 1)
         
         # Time delay spacing
-        self.spacer = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
-        self.spacer.setText("")
-        self.time_delay_procedure_settings_layout.addWidget(self.spacer, 0, 2, 1, 1)
-        self.spacer_2 = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
-        self.spacer_2.setText("")
-        self.spacer_2.setObjectName("spacer_2")
-        self.time_delay_procedure_settings_layout.addWidget(self.spacer_2, 2, 0, 1, 1)
-        # self.time_delay_procedure_settings_layout.setColumnStretch(2, 1)
+        self.spacer_x = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.spacer_x.setText("")
+        self.time_delay_procedure_settings_layout.addWidget(self.spacer_x, 0, 2, 1, 1)
+        self.spacer_x_2 = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.spacer_x_2.setText("")
+        self.time_delay_procedure_settings_layout.addWidget(self.spacer_x_2, 0, 3, 1, 1)
+        self.spacer_y = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.spacer_y.setText("")
+        self.time_delay_procedure_settings_layout.addWidget(self.spacer_y, 2, 0, 1, 1)
         
         # Amplitude procedure settings layout
         self.amp_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
@@ -362,45 +363,48 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Amp procedure channel
         self.amp_procedure_channel_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_channel_label, 2, 0, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_channel_label, 0, 0, 1, 1)
         self.amp_procedure_channel = QtWidgets.QComboBox(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_channel.addItem("")
         self.amp_procedure_channel.addItem("")
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_channel, 2, 1, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_channel, 0, 1, 1, 1)
         
         # Amp procedure start
         self.amp_procedure_start_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start_label, 3, 0, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start_label, 1, 0, 1, 1)
         self.amp_procedure_start = ScienDSpinBox(parent=self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start, 3, 1, 1, 1)        
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_start, 1, 1, 1, 1)        
         
         # Amp procedure end
         self.amp_procedure_end_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end_label, 4, 0, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end_label, 2, 0, 1, 1)
         self.amp_procedure_end = ScienDSpinBox(parent=self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end, 4, 1, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_end, 2, 1, 1, 1)
         
         # Amp procedure fixed time delay
         self.amp_procedure_fixed_time_delay_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay_label, 5, 0, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay_label, 3, 0, 1, 1)
         self.amp_procedure_fixed_time_delay = ScienDSpinBox(parent=self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay, 5, 1, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_fixed_time_delay, 3, 1, 1, 1)
         
         
         # Amp procedure sample size
         self.amp_procedure_sample_size_label = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size_label, 6, 0, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size_label, 4, 0, 1, 1)
         self.amp_procedure_sample_size = QtWidgets.QSpinBox(self.amp_procedure_settings_layout_outer)
         self.amp_procedure_sample_size.setMaximum(9999)
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size, 6, 1, 1, 1)
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_sample_size, 4, 1, 1, 1)
         
         # Amp procedure spacing
-        self.amp_procedure_spacing = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_spacing.setText("")
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing, 2, 2, 1, 1)
-        self.amp_procedure_spacing_2 = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
-        self.amp_procedure_spacing_2.setText("")
-        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing_2, 7, 0, 1, 1)
+        self.amp_procedure_spacing_x = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_spacing_x.setText("")
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing_x, 0, 2, 1, 1)
+        self.amp_procedure_spacing_x_2 = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_spacing_x_2.setText("")
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing_x_2, 0, 3, 1, 1)
+        self.amp_procedure_spacing_y = QtWidgets.QLabel(self.amp_procedure_settings_layout_outer)
+        self.amp_procedure_spacing_y.setText("")
+        self.amp_procedure_settings_layout.addWidget(self.amp_procedure_spacing_y, 5, 0, 1, 1)
         
         # Image procedure settings layout
         self.image_procedure_settings_layout_outer = QtWidgets.QWidget(self.procedure_settings_box)
@@ -448,18 +452,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_scan_speed = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
         self.image_procedure_settings_layout.addWidget(self.image_scan_speed, 5, 1, 1, 1)
 
+        # Image lines per second
+        self.image_lines_per_second_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_lines_per_second_label, 6, 0, 1, 1)
+        self.image_lines_per_second = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
+        self.image_lines_per_second.setEnabled(False)
+        self.image_procedure_settings_layout.addWidget(self.image_lines_per_second, 6, 1, 1, 1)
+
         # Image procedure spacing
-        self.spacer_y = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
-        self.spacer_y.setText("")
-        self.image_procedure_settings_layout.addWidget(self.spacer_y, 6, 0, 1, 1)
         self.spacer_x = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
         self.spacer_x.setText("")
         self.image_procedure_settings_layout.addWidget(self.spacer_x, 0, 2, 1, 1)
+        self.spacer_x_2 = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.spacer_x_2.setText("")
+        self.image_procedure_settings_layout.addWidget(self.spacer_x_2, 0, 3, 1, 1)
         
         # Sweep box
         self.sweep_box = QtWidgets.QGroupBox(self.centralwidget)
         self.sweep_box.setGeometry(QtCore.QRect(10, 370, 251, 211))
         self.sweep_box.setCheckable(True)
+        self.sweep_box.setChecked(False)
         
         # Sweep box vlayout
         self.sweep_box_vlayout_outer  = QtWidgets.QWidget(self.sweep_box)
@@ -606,6 +618,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_x_offset_label.setText("X Offset:")
         self.image_y_offset_label.setText("Y Offset:")
         self.image_scan_speed_label.setText("Scan speed:")
+        self.image_lines_per_second_label.setText("Lines per second:")
         
         self.sweep_box.setTitle("Sweep over multiple runs")
         self.sweep_parameter_label.setText("Sweep parameter")
@@ -682,11 +695,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_x_offset.setValue(0.0)
         self.image_x_offset.setSuffix('m')
         self.image_x_offset.setMaximum(999e-6)
+        self.image_x_offset.setMinimum(-999e-6)
+        self.image_x_offset.setMinimalStep(0.01e-9)
         self.image_y_offset.setValue(0.0)
         self.image_y_offset.setSuffix('m')
         self.image_y_offset.setMaximum(999e-6)
-        self.image_scan_speed.setValue(0.0)
+        self.image_y_offset.setMinimum(-999e-6)
+        self.image_y_offset.setMinimalStep(0.01e-9)
+        self.image_scan_speed.setValue(10.0e-9)
         self.image_scan_speed.setSuffix('m/s')
+        self.image_lines_per_second.setValue(self.image_scan_speed.value()/self.image_size.value())
+        self.image_lines_per_second.setSuffix('lines/s')
 
         self.lockin_status_label.setText("Lock-in status: ")
         self.lockin_status.setText("Disconnected")
@@ -956,9 +975,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         procedure_channel = Channel.PUMP
                         pump_pulse.amp = domain[0]
                 case "Image":
+                    samples = self.image_frames.value()
                     procedure_channel = Channel.PROBE
                     domain = (-180, 180)
-                    pass
+                    self.report_progress("Image functionality not implemented yet.")
+                    return
                 case _:
                     pass
                 
