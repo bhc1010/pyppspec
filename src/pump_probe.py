@@ -2,20 +2,17 @@ import os, time
 import numpy as np
 from devices import RHK_R9, STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
-from typing import Tuple, Callable
+from typing import Tuple, Callable, List
 from enum import Enum
 
 class Channel(Enum):
     PROBE = 1
     PUMP = 2
-
-"""
-Defines an immutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
-"""
-@dataclass(frozen=True)
-class Procedure:
-    call: Callable
-    conversion_factor: float
+    
+class ProcedureType(Enum):
+    TIME_DELAY = 1
+    AMPLITUDE = 2
+    IMAGE = 3
 
 """
 Defines a mutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
@@ -33,8 +30,6 @@ Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse da
 """
 @dataclass()
 class PumpProbeExperiment:
-    procedure: Procedure
-    procedure_channel: Channel
     pump: Pulse
     probe: Pulse
     domain: tuple
@@ -57,6 +52,17 @@ class PumpProbeExperiment:
         out += f"[Probe]\namp: {self.probe.amp}\nwidth: {self.probe.width}\nedge: {self.probe.edge}\n"
         out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\nlock-in freq: {self.lockin_freq}\n"
         return out
+
+@dataclass(frozen=True)
+class Procedure:
+    """
+    Defines an immutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
+    """
+    proc_type: ProcedureType
+    proc_call: Callable
+    channel: Channel
+    experiments: List[PumpProbeExperiment]
+    conversion_factor: float
 
 """
 Defines a mutable dataclass PumpProbeConfig to hold semi-constant (globally used for all experiments but can be mutated) pump-probe configuration data
