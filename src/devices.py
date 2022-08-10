@@ -409,3 +409,6 @@ class RHK_R9(STM):
         print(f"y: {y}")
         
         return Vector2(x=x, y=y)
+    
+    def image(self):
+        pass
