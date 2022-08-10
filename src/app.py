@@ -58,6 +58,7 @@ class PumpProbeWorker(QtCore.QThread):
         # Save RHK position info
         with open(os.path.join(path,  "meta.toml"), 'w') as file:
             toml = exp.generate_toml()
+            toml += f"Lock-in Freq: {self.pump_probe.config.lockin_freq}"
             file.write(toml)
 
     """

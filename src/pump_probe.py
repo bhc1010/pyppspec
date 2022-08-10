@@ -34,6 +34,7 @@ class PumpProbeExperiment:
     probe: Pulse
     domain: tuple
     samples: int
+    fixed_time_delay: float = None
     stm_coords: Vector2 = Vector2(0,0)
     name: str = ""
     
@@ -50,7 +51,7 @@ class PumpProbeExperiment:
         out += f"[Position]\nx: {self.stm_coords.x}\ny: {self.stm_coords.y}\n"
         out += f"[Pump]\namp: {self.pump.amp}\nwidth: {self.pump.width}\nedge: {self.pump.edge}\n"
         out += f"[Probe]\namp: {self.probe.amp}\nwidth: {self.probe.width}\nedge: {self.probe.edge}\n"
-        out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\nlock-in freq: {self.lockin_freq}\n"
+        out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\n"
         return out
 
 @dataclass()
@@ -122,8 +123,8 @@ class PumpProbe():
     Runs a pump-probe experiment by sweeping the phase of one of the pulses.
         exp : PumpProbeExperiment to run
     """
-    def run(self, exp:PumpProbeExperiment, new_arb:bool, plotter=None) -> Tuple[list, list]:
-        procedure = exp.procedure 
+    def run(self, procedure: Procedure, experiment_idx: int, new_arb:bool, plotter=None) -> Tuple[list, list]:
+        exp = procedure.experiments[experiment_idx]
         proc_start = exp.domain[0]
         proc_end = exp.domain[1]
         samples = exp.samples
@@ -148,6 +149,10 @@ class PumpProbe():
         else:
             self.awg.set_amp(exp.pump.amp, 1)
             self.awg.set_amp(exp.probe.amp, 2)
+
+        if exp.fixed_time_delay:
+            phi = exp.fixed_time_delay * self.config.sample_rate / 360
+            self.awg.set_phase(phi, Channel.PROBE)
 
         proc_range = np.linspace(proc_start, proc_end, samples)
         
