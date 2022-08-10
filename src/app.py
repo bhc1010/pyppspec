@@ -251,7 +251,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue = QDataTable(self.centralwidget)
         self.queue.setGeometry(QtCore.QRect(280, 10, 821, 431))
         self.queue.setRowCount(1)
-        self.queue.setColumnCount(8)
+        self.queue.setColumnCount(9)
         self.queue.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(1, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(2, QtWidgets.QTableWidgetItem())
@@ -260,6 +260,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.setHorizontalHeaderItem(5, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(6, QtWidgets.QTableWidgetItem())
         self.queue.setHorizontalHeaderItem(7, QtWidgets.QTableWidgetItem())
+        self.queue.setHorizontalHeaderItem(8, QtWidgets.QTableWidgetItem())
         self.queue.horizontalHeader().setVisible(True)
         self.queue.horizontalHeader().setCascadingSectionResizes(False)
         self.queue.verticalHeader().setVisible(True)
@@ -643,6 +644,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.horizontalHeaderItem(5).setText("Probe Width")
         self.queue.horizontalHeaderItem(6).setText("Probe Edge")
         self.queue.horizontalHeaderItem(7).setText("Domain")
+        self.queue.horizontalHeaderItem(8).setText("Fixed time delay")
 
         # Defaults
         self.pump_amp.setValue(0.5)
