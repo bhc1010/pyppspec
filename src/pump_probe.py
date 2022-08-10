@@ -25,10 +25,10 @@ class Pulse:
     time_spread: float
 
 """
-Defines an mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
+Defines an immutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
     NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
 """
-@dataclass()
+@dataclass(frozen=True)
 class PumpProbeExperiment:
     pump: Pulse
     probe: Pulse
@@ -53,10 +53,10 @@ class PumpProbeExperiment:
         out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\nlock-in freq: {self.lockin_freq}\n"
         return out
 
-@dataclass(frozen=True)
+@dataclass()
 class Procedure:
     """
-    Defines an immutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
+    Defines an mutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
     """
     proc_type: ProcedureType
     proc_call: Callable

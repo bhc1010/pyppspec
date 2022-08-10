@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QPlotter
-from pump_probe import Procedure, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
+from pump_probe import Procedure, ProcedureType, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
 from scientific_spinbox import ScienDSpinBox
 from datetime import datetime
 
@@ -332,10 +332,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.time_delay_procedure_settings_layout.setContentsMargins(0, 0, 0, 0)
         
         # Time spread
-        self.time_spread_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
-        self.time_delay_procedure_settings_layout.addWidget(self.time_spread_label, 0, 0, 1, 1)
-        self.time_spread = ScienDSpinBox(parent=self.time_delay_procedure_settings_layout_outer)
-        self.time_delay_procedure_settings_layout.addWidget(self.time_spread, 0, 1, 1, 1)
+        self.time_delay_time_spread_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
+        self.time_delay_procedure_settings_layout.addWidget(self.time_delay_time_spread_label, 0, 0, 1, 1)
+        self.time_delay_time_spread = ScienDSpinBox(parent=self.time_delay_procedure_settings_layout_outer)
+        self.time_delay_procedure_settings_layout.addWidget(self.time_delay_time_spread, 0, 1, 1, 1)
         
         # Time delay sample size
         self.time_delay_sample_size_label = QtWidgets.QLabel(self.time_delay_procedure_settings_layout_outer)
@@ -460,13 +460,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_lines_per_second.setEnabled(False)
         self.image_procedure_settings_layout.addWidget(self.image_lines_per_second, 6, 1, 1, 1)
 
+        # Image time spread
+        self.image_time_spread_label = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        self.image_procedure_settings_layout.addWidget(self.image_time_spread_label, 0, 2, 1, 1)
+        self.image_time_spread = ScienDSpinBox(parent=self.image_procedure_settings_layout_outer)
+        self.image_time_spread.setEnabled(False)
+        self.image_procedure_settings_layout.addWidget(self.image_time_spread, 0, 3, 1, 1)
+
         # Image procedure spacing
-        self.spacer_x = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
-        self.spacer_x.setText("")
-        self.image_procedure_settings_layout.addWidget(self.spacer_x, 0, 2, 1, 1)
-        self.spacer_x_2 = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
-        self.spacer_x_2.setText("")
-        self.image_procedure_settings_layout.addWidget(self.spacer_x_2, 0, 3, 1, 1)
+        # self.spacer_x = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        # self.spacer_x.setText("")
+        # self.image_procedure_settings_layout.addWidget(self.spacer_x, 0, 2, 1, 1)
+        # self.spacer_x_2 = QtWidgets.QLabel(self.image_procedure_settings_layout_outer)
+        # self.spacer_x_2.setText("")
+        # self.image_procedure_settings_layout.addWidget(self.spacer_x_2, 0, 3, 1, 1)
         
         # Sweep box
         self.sweep_box = QtWidgets.QGroupBox(self.centralwidget)
@@ -600,7 +607,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.procedure_settings_box.setTitle("Procedure settings")
         
         # Time delay procedure settings
-        self.time_spread_label.setText("Time spread:")
+        self.time_delay_time_spread_label.setText("Time spread:")
         self.time_delay_sample_size_label.setText("Sample size:")
         
         # Amp procedure settings
@@ -620,6 +627,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_y_offset_label.setText("Y Offset:")
         self.image_scan_speed_label.setText("Scan speed:")
         self.image_lines_per_second_label.setText("Lines per second:")
+        self.image_time_spread_label.setText("Time spread:")
         
         self.sweep_box.setTitle("Sweep over multiple runs")
         self.sweep_parameter_label.setText("Sweep parameter")
@@ -674,8 +682,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sweep_step.setValue(0.1)
         self.sweep_step.setSuffix('V')
         
-        self.time_spread.setValue(100e-9)
-        self.time_spread.setSuffix('s')
+        self.time_delay_time_spread.setValue(100e-9)
+        self.time_delay_time_spread.setSuffix('s')
         
         self.time_delay_sample_size.setValue(500)
         
@@ -708,6 +716,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_scan_speed.setSuffix('m/s')
         self.image_lines_per_second.setValue(self.image_scan_speed.value()/self.image_size.value())
         self.image_lines_per_second.setSuffix('lines/s')
+        self.image_time_spread.setValue(100e-9)
+        self.image_time_spread.setSuffix('s')
 
         self.lockin_status_label.setText("Lock-in status: ")
         self.lockin_status.setText("Disconnected")
@@ -872,14 +882,15 @@ class MainWindow(QtWidgets.QMainWindow):
         exp_dict = {'procedure' : self.procedure.currentText(),
                 'pump_amp': self.pump_amp.text(), 'pump_width': self.pump_width.text(), 'pump_edge': self.pump_edge.text(),
                 'probe_amp': self.probe_amp.text(), 'probe_width': self.probe_width.text(), 'probe_edge': self.probe_edge.text(),
-                'domain': ''}
+                'domain': '', 'fixed_time_delay' : 'None'}
         
         match exp_dict['procedure']:
             case "Time delay":
-                bound = self.time_spread.textFromValue(self.time_spread.value()/2)
+                bound = self.time_delay_time_spread.textFromValue(self.time_delay_time_spread.value()/2)
                 exp_dict['domain'] = f'(-{bound}s, {bound}s)'
             case "Amplitude":
                 exp_dict['domain'] = f'({self.amp_procedure_start.text()}, {self.amp_procedure_end.text()})'
+                exp_dict['fixed_time_delay'] = self.amp_procedure_fixed_time_delay.text()
                 if self.amp_procedure_channel.currentText() == "Pump":
                     exp_dict['pump_amp'] = exp_dict['domain']
                 else:
@@ -941,8 +952,9 @@ class MainWindow(QtWidgets.QMainWindow):
         sweep_ch = self.sweep_channel.currentText()
         
         for i in range(steps):
-            pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), 100e-9)
-            probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), 100e-9)
+            """TODO: Remove self.time_delay_time_spread dependence in Pulse creation"""
+            pump_pulse = Pulse(self.pump_amp.value(), self.pump_width.value(), self.pump_edge.value(), self.time_delay_time_spread.value())
+            probe_pulse = Pulse(self.probe_amp.value(), self.probe_width.value(), self.probe_edge.value(), self.time_delay_time_spread.value())
             if self.sweep_box.isChecked():
                 if sweep_param == "Amplitude":
                     if sweep_ch == "Pump":
@@ -973,19 +985,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 case "Time delay":
                     samples = self.time_delay_sample_size.value()
                     domain = (-180, 180)
-                    procedure_channel = Channel.PROBE
                 case "Amplitude":
                     samples = self.amp_procedure_sample_size.value()
                     domain = (self.amp_procedure_start.value(), self.amp_procedure_end.value())
                     if self.amp_procedure_channel.currentText() == "Probe":
-                        procedure_channel = Channel.PROBE
                         probe_pulse.amp = domain[0]
                     else:
-                        procedure_channel = Channel.PUMP
                         pump_pulse.amp = domain[0]
                 case "Image":
                     samples = self.image_frames.value()
-                    procedure_channel = Channel.PROBE
                     domain = (-180, 180)
                     self.report_progress("Image functionality not implemented yet.")
                     return
@@ -993,8 +1001,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     pass
                 
 
-            new_experiment = PumpProbeExperiment(procedure=procedure, procedure_channel=procedure_channel, pump=pump_pulse, probe=probe_pulse, domain=domain, samples=samples)
-            experiments.append(new_experiment)
+            new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, domain=domain, samples=samples)
+            procedure.experiments.append(new_experiment)
         print("Added to queue:")
         for exp in experiments:
             print(f'[ADDED] {exp}')
@@ -1016,14 +1024,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
     """
     """
-    def get_selected_procedure(self):
+    def get_selected_procedure(self) -> Procedure:
         match self.procedure.currentText():
             case "Time delay":
-                return self.sweep_phase_procedure()
+                proc_type = ProcedureType.TIME_DELAY
+                proc_call = self.PumpProbe.awg.set_phase
+                proc_channel = Channel.PUMP
+                conversion_factor = self.time_delay_time_spread.value() / 360 * self.PumpProbe.config.sample_rate
             case "Amplitude":
-                return self.sweep_amp_procedure()
+                proc_type = ProcedureType.AMPLITUDE                
+                proc_call = self.PumpProbe.awg.set_amp
+                if self.amp_procedure_channel.currentText() == "Probe":
+                    proc_channel = Channel.PROBE
+                else:
+                    proc_channel = Channel.PUMP
+                conversion_factor = 1.0
+            case "Image":
+                proc_type = ProcedureType.IMAGE
+                proc_call = self.PumpProbe.stm.image
+                proc_channel = Channel.PROBE
+                conversion_factor = self.image_time_spread.value() / 360 * self.PumpProbe.config.sample_rate      
             case _:
                 return None
+            
+        return Procedure(proc_type=proc_type, proc_call=proc_call, channel=proc_channel, experiments=list(), conversion_factor=conversion_factor)
     
     """
     """
