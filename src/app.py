@@ -731,6 +731,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.amp_procedure_channel.activated.connect(self.amp_proc_ch_changed)
         self.sweep_parameter.activated.connect(self.sweep_param_changed)
         
+        # Settings changed
+        self.image_size.valueChanged.connect(self.update_image_lines_per_second)
+        self.image_scan_speed.valueChanged.connect(self.update_image_lines_per_second)
+        
         # Menu actions
         self.action_set_save_path.triggered.connect(self.set_save_path)
         self.action_reset_connected_devices.triggered.connect(self.reset_triggered)
@@ -814,6 +818,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sweep_channel.setCurrentText("Pump")
         else:
             self.sweep_channel.setCurrentText("Probe")
+
+    def update_image_lines_per_second(self):
+        self.image_lines_per_second.setValue(self.image_scan_speed.value() / self.image_size.value())
 
     def run_procedures(self):
         """
