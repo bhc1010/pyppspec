@@ -21,6 +21,7 @@ class PumpProbeWorker(QtCore.QThread):
     _awg_status = QtCore.pyqtSignal(str)
     _stm_status = QtCore.pyqtSignal(str)
     _make_figure = QtCore.pyqtSignal(str)
+    _zero_line = QtCore.pyqtSignal(float)
 
     def __init__(self, pump_probe:PumpProbe, queue: QDataTable, plotter: QPlotter) -> None:
         super().__init__(parent=None)
@@ -137,7 +138,7 @@ class PumpProbeWorker(QtCore.QThread):
                 
                 # Add zero line to plot
                 zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
-                plt.axvline(zero, color = 'r', linestyle='--')
+                self._zero_line.emit(zero)
                 
                 # Save data
                 self.save_data(exp, (dt, volt_data))
@@ -854,6 +855,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # plotting
         self.worker._make_figure.connect(self.plotter.mk_figure)
+        self.worker._zero_line.connect(self.plotter.zero_line)
         self.plotter._plot.connect(self.plotter.update_figure)
 
 

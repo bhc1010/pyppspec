@@ -118,6 +118,10 @@ class QPlotter(QtCore.QObject):
         ax = plt.gca()
         ax.relim()
         ax.autoscale_view()
+        
+    def zero_line(self, zero: float):
+        plt.axvline(zero, color = 'r', linestyle='--')
+
 
     def add_data(self, x:float, y:float):
         self.xdata.append(x)
