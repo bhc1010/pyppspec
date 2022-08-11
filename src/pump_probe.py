@@ -25,10 +25,10 @@ class Pulse:
     time_spread: float
 
 """
-Defines an immutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
+Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
     NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
 """
-@dataclass(frozen=True)
+@dataclass()
 class PumpProbeExperiment:
     pump: Pulse
     probe: Pulse
