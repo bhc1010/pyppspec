@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QPlotter
-from pump_probe import Procedure, ProcedureType, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
+from pump_probe import PumpProbeProcedure, PumpProbeProcedureType, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
 from scientific_spinbox import ScienDSpinBox
 from datetime import datetime
 
@@ -93,16 +93,16 @@ class PumpProbeWorker(QtCore.QThread):
         while(len(self.queue.data) != 0 and self._running_pp):
             self._queue_signal.emit(QtGui.QColor(QtCore.Qt.green))
             
-            experiments : list = self.queue.data[0]
+            procedure : PumpProbeProcedure = self.queue.data[0]
             
             # Run pump-probe experiment. If not a repeated pulse, send new pulse data to AWG
-            for exp in experiments:
+            for exp_idx, exp in enumerate(procedure.experiments):
                 exp.name = str(datetime.now().strftime("%Y%m%d %H-%M-%S"))
                 
                 try:
                     prev_exp = self.pump_probe.prev_exp
                 except:
-                    prev_exp = None 
+                    prev_exp = None
                     
                 if prev_exp:
                     if exp.pump.edge != prev_exp.pump.edge or exp.pump.width != prev_exp.pump.width:
@@ -121,7 +121,7 @@ class PumpProbeWorker(QtCore.QThread):
                 exp.stm_coords = self.pump_probe.stm.get_position()
                 try:
                     self._progress.emit("Running pump-probe experiment.")
-                    dt, volt_data = self.pump_probe.run(exp=exp, new_arb=self._new_arb, plotter=self.plotter)
+                    dt, volt_data = self.pump_probe.run(procedure=procedure, experiment_idx=exp_idx, new_arb=self._new_arb, plotter=self.plotter)
                 except Exception as e:
                     traceback.print_exc()
                     msg = f"[ERROR] {e}. "
@@ -1024,15 +1024,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     """
     """
-    def get_selected_procedure(self) -> Procedure:
+    def get_selected_procedure(self) -> PumpProbeProcedure:
         match self.procedure.currentText():
             case "Time delay":
-                proc_type = ProcedureType.TIME_DELAY
+                proc_type = PumpProbeProcedureType.TIME_DELAY
                 proc_call = self.PumpProbe.awg.set_phase
                 proc_channel = Channel.PUMP
                 conversion_factor = self.time_delay_time_spread.value() / 360 * self.PumpProbe.config.sample_rate
             case "Amplitude":
-                proc_type = ProcedureType.AMPLITUDE                
+                proc_type = PumpProbeProcedureType.AMPLITUDE                
                 proc_call = self.PumpProbe.awg.set_amp
                 if self.amp_procedure_channel.currentText() == "Probe":
                     proc_channel = Channel.PROBE
@@ -1040,14 +1040,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     proc_channel = Channel.PUMP
                 conversion_factor = 1.0
             case "Image":
-                proc_type = ProcedureType.IMAGE
+                proc_type = PumpProbeProcedureType.IMAGE
                 proc_call = self.PumpProbe.stm.image
                 proc_channel = Channel.PROBE
                 conversion_factor = self.image_time_spread.value() / 360 * self.PumpProbe.config.sample_rate      
             case _:
                 return None
             
-        return Procedure(proc_type=proc_type, proc_call=proc_call, channel=proc_channel, experiments=list(), conversion_factor=conversion_factor)
+        return PumpProbeProcedure(proc_type=proc_type, proc_call=proc_call, channel=proc_channel, experiments=list(), conversion_factor=conversion_factor)
     
     """
     """
@@ -1067,10 +1067,10 @@ class MainWindow(QtWidgets.QMainWindow):
     
     """
     """
-    def sweep_phase_procedure(self) -> Procedure:
-        return Procedure(self.PumpProbe.awg.set_phase, conversion_factor=100e-9 / 360 * self.PumpProbe.config.sample_rate)
+    def sweep_phase_procedure(self) -> PumpProbeProcedure:
+        return PumpProbeProcedure(self.PumpProbe.awg.set_phase, conversion_factor=100e-9 / 360 * self.PumpProbe.config.sample_rate)
     
     """
     """
-    def sweep_amp_procedure(self) -> Procedure:
-        return Procedure(self.PumpProbe.awg.set_amp, conversion_factor=1.0)
+    def sweep_amp_procedure(self) -> PumpProbeProcedure:
+        return PumpProbeProcedure(self.PumpProbe.awg.set_amp, conversion_factor=1.0)

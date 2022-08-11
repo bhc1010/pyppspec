@@ -123,7 +123,7 @@ class PumpProbe():
     Runs a pump-probe experiment by sweeping the phase of one of the pulses.
         exp : PumpProbeExperiment to run
     """
-    def run(self, procedure: Procedure, experiment_idx: int, new_arb:bool, plotter=None) -> Tuple[list, list]:
+    def run(self, procedure: PumpProbeProcedure, experiment_idx: int, new_arb:bool, plotter=None) -> Tuple[list, list]:
         exp = procedure.experiments[experiment_idx]
         proc_start = exp.domain[0]
         proc_end = exp.domain[1]
@@ -151,7 +151,7 @@ class PumpProbe():
             self.awg.set_amp(exp.probe.amp, 2)
 
         if exp.fixed_time_delay:
-            phi = exp.fixed_time_delay * self.config.sample_rate / 360
+            phi = (exp.fixed_time_delay + 2*exp.pump.edge + exp.pump.width) * self.config.sample_rate / 360
             self.awg.set_phase(phi, Channel.PROBE)
 
         proc_range = np.linspace(proc_start, proc_end, samples)
@@ -183,7 +183,7 @@ class PumpProbe():
             x.append(dx)
             
             # Procedure done each dx
-            procedure.call(proc_range[i], exp.procedure_channel.value())
+            procedure.call(proc_range[i], procedure.channel.value())
             time.sleep(0.01)
 
             # Read value from lock-in
