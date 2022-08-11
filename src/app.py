@@ -61,10 +61,10 @@ class PumpProbeWorker(QtCore.QThread):
             toml += f"Lock-in Freq: {self.pump_probe.config.lockin_freq}"
             file.write(toml)
 
-    """
-    Run pump probe experiment for each experiment in the queue until empty or 'Stop queue' button is pressed.
-    """
     def run(self):
+        """
+        Run pump probe experiment for each experiment in the queue until empty or 'Stop queue' button is pressed.
+        """
         self._running_pp = False
         self._new_arb = True
 
@@ -118,7 +118,7 @@ class PumpProbeWorker(QtCore.QThread):
                 self._make_figure.emit(exp.generate_toml())
                 
                 # Get tip position
-                exp.stm_coords = self.pump_probe.stm.get_position()
+                # exp.stm_coords = self.pump_probe.stm.get_position()
                 try:
                     self._progress.emit("Running pump-probe experiment.")
                     dt, volt_data = self.pump_probe.run(procedure=procedure, experiment_idx=exp_idx, new_arb=self._new_arb, plotter=self.plotter)
