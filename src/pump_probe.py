@@ -9,7 +9,7 @@ class Channel(Enum):
     PROBE = 1
     PUMP = 2
     
-class ProcedureType(Enum):
+class PumpProbeProcedureType(Enum):
     TIME_DELAY = 1
     AMPLITUDE = 2
     IMAGE = 3
@@ -55,11 +55,11 @@ class PumpProbeExperiment:
         return out
 
 @dataclass()
-class Procedure:
+class PumpProbeProcedure:
     """
     Defines an mutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
     """
-    proc_type: ProcedureType
+    proc_type: PumpProbeProcedureType
     proc_call: Callable
     channel: Channel
     experiments: List[PumpProbeExperiment]
