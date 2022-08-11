@@ -3,9 +3,9 @@ import numpy as np
 from devices import RHK_R9, STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable, List
-from enum import Enum
+from enum import IntEnum, Enum
 
-class Channel(Enum):
+class Channel(IntEnum):
     PROBE = 1
     PUMP = 2
     
