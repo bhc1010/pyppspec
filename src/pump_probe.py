@@ -209,5 +209,6 @@ class PumpProbe():
         
         # Set tip to unlimit
         self.stm.set_tip_control("unlimit")
+        time.sleep(1)
         
         return (dx, data)
