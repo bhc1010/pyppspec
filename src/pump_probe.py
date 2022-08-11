@@ -183,7 +183,7 @@ class PumpProbe():
             x.append(dx)
             
             # Procedure done each dx
-            procedure.call(proc_range[i], procedure.channel.value())
+            procedure.call(proc_range[i], procedure.channel)
             time.sleep(0.01)
 
             # Read value from lock-in
