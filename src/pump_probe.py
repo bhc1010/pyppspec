@@ -166,8 +166,8 @@ class PumpProbe():
         """TODO: have bias a setting in the experiment?"""
         # Set STM bias to minimum
         prev_bias = self.stm.get_bias()
-        self.stm.set_bias(0.01)
-        time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
+        # self.stm.set_bias(0.01)
+        # time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
 
         # Open channel 1 on AWG
         self.awg.open_channel(1)
