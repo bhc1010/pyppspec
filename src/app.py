@@ -942,7 +942,6 @@ class MainWindow(QtWidgets.QMainWindow):
         with float values and added to the QDataTable's data array via QDataTable.add_item(..., data = PumpProbeExperiment(...))
         """    
         steps = 1
-        experiments = list()
         procedure = self.get_selected_procedure()
         
         if self.sweep_box.isChecked():
@@ -1005,9 +1004,9 @@ class MainWindow(QtWidgets.QMainWindow):
             new_experiment = PumpProbeExperiment(pump=pump_pulse, probe=probe_pulse, domain=domain, samples=samples)
             procedure.experiments.append(new_experiment)
         print("Added to queue:")
-        for exp in experiments:
+        for exp in procedure.experiments:
             print(f'[ADDED] {exp}')
-        self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = experiments)
+        self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = procedure)
 
     """
     """
