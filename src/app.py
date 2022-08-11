@@ -1047,7 +1047,7 @@ class MainWindow(QtWidgets.QMainWindow):
             case _:
                 return None
             
-        return PumpProbeProcedure(proc_type=proc_type, proc_call=proc_call, channel=proc_channel, experiments=list(), conversion_factor=conversion_factor)
+        return PumpProbeProcedure(proc_type=proc_type, call=proc_call, channel=proc_channel, experiments=list(), conversion_factor=conversion_factor)
     
     """
     """
