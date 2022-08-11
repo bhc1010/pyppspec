@@ -60,7 +60,7 @@ class PumpProbeProcedure:
     Defines an mutable dataclass called Procedure to hold information about what function to run each step and what the conversion factor should be for the x-axis
     """
     proc_type: PumpProbeProcedureType
-    proc_call: Callable
+    call: Callable
     channel: Channel
     experiments: List[PumpProbeExperiment]
     conversion_factor: float
