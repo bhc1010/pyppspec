@@ -1,5 +1,4 @@
 import os, traceback
-from xml import dom
 
 import numpy as np
 import pandas as pd
@@ -8,6 +7,7 @@ import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from extend_qt import QDataTable, QDataTableRow, QPlotter
 from pump_probe import PumpProbeProcedure, PumpProbeProcedureType, PumpProbe, PumpProbeConfig, PumpProbeExperiment, Pulse, Channel
+from devices import RHK_R9
 from scientific_spinbox import ScienDSpinBox
 from datetime import datetime
 
@@ -20,7 +20,8 @@ class PumpProbeWorker(QtCore.QThread):
     _lockin_status = QtCore.pyqtSignal(str)
     _awg_status = QtCore.pyqtSignal(str)
     _stm_status = QtCore.pyqtSignal(str)
-    _make_figure = QtCore.pyqtSignal(str)
+    _make_figure = QtCore.pyqtSignal(list)
+    _add_line = QtCore.pyqtSignal(str)
     _zero_line = QtCore.pyqtSignal(float)
 
     def __init__(self, pump_probe:PumpProbe, queue: QDataTable, plotter: QPlotter) -> None:
@@ -115,8 +116,31 @@ class PumpProbeWorker(QtCore.QThread):
                     else:
                         self._new_arb = False
 
+                # Get line name
+                if len(procedure.experiments) > 1:
+                    for prop in exp.__dict__:
+                        if prop == 'name':
+                            continue
+                        if procedure.experiments[0].__dict__[prop] != procedure.experiments[1].__dict__[prop]:
+                            for param in exp.__dict__[prop].__dict__:
+                                if procedure.experiments[0].__dict__[prop].__dict__[param] != procedure.experiments[1].__dict__[prop].__dict__[param]:
+                                    sweep_param = param
+                                    sweep_prop = prop
+                    line_name = f'{sweep_prop} {sweep_param} : {exp.__dict__[sweep_prop].__dict__[sweep_param]}'
+                else:
+                    line_name = None
+
                 # Make new figure 
-                self._make_figure.emit(exp.generate_toml())
+                # print("exp_idx: ", exp_idx)
+                # print(procedure.single_plot)
+                if exp_idx == 0 or not procedure.single_plot:
+                    self._make_figure.emit([exp.generate_toml(), line_name])
+                    # print("made new figure")
+                else:
+                    # print("added new line")
+                    self._add_line.emit(line_name)
+
+                    
                 
                 # Get tip position
                 # exp.stm_coords = self.pump_probe.stm.get_position()
@@ -207,7 +231,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print(f"{key} : {self.settings.value(key)} - {type(default_config[key])}")
     
         
-        self.PumpProbe = PumpProbe(PumpProbeConfig(**config))
+        self.PumpProbe = PumpProbe(stm=RHK_R9(), config=PumpProbeConfig(**config))
         self.PumpProbe.plotter = QPlotter()
         self.retranslateUi()
         self.procedure_dict = {'procedure' : 'Time delay', 'procedure_channel' : 'Probe',
@@ -1008,6 +1032,10 @@ class MainWindow(QtWidgets.QMainWindow):
         print("Added to queue:")
         for exp in procedure.experiments:
             print(f'[ADDED] {exp}')
+        if self.overlay_checkbox.isChecked():
+            procedure.single_plot = True
+        else:
+            procedure.single_plot = False
         self.queue.add_item(row = QDataTableRow(**self.get_experiment_dict()), data = procedure)
 
     """
@@ -1020,7 +1048,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Remove experiment from queue data
             self.statusbar.showMessage("Experiment removed from queue.")
             print("Experiment removed from queue:")
-            for exp in self.queue.data[rowIdx]:
+            for exp in self.queue.data[rowIdx].experiments:
                 print(f'[REMOVED] {exp}')
             del self.queue.data[rowIdx]
 

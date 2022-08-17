@@ -30,10 +30,36 @@ class QDataTable(QtWidgets.QTableWidget):
         for col_idx, key in enumerate(row.__dict__.keys()):
             self.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(row.__dict__[key]))
 
-"""
+class PlotFFT(ToolBase):
+    def trigger(self, *args, **kwargs):
+        self.generate_fft()
+        
+    def generate_fft(self):
+        fig = self.figure
+        data = fig.axes[0].lines[0].get_data()
+        time = np.array(data[0])
+        voltage = np.array(data[1])
+        
+        # calculate FFT
+        n = len(time)
+        fhat = np.fft.fft(voltage, n)
+        PSD = fhat * np.conj(fhat) / n
+        # T = time[-1] - time[0]
+        dt = time[1] - time[0]
+        T = dt * n
+        freq = (1 / T) * np.arange(n)
+        L = np.arange(1, np.floor(n/2), dtype='int')
 
-"""
+        # Plot PSD on new plot
+        fig, ax = plt.subplots(1,1)
+        ax.plot(freq[L], PSD[L])
+        ax.set_xlabel('Frequency')
+        ax.set_ylabel('Power Spectrum Density')
+        ax.set_title('FFT Power Spectrum Density')
+
 class GenerateDerivativePlotButton(ToolBase):
+    """
+    """
     description = 'Generate derivative plot'
         
     def trigger(self, *args, **kwargs):
@@ -74,10 +100,9 @@ class GenerateDerivativePlotButton(ToolBase):
         plt.grid(True)
         plt.draw()
         
-"""
-
-"""
 class QPlotter(QtCore.QObject):
+    """
+    """
     _plot = QtCore.pyqtSignal(list)
     
     def __init__(self):
@@ -86,29 +111,33 @@ class QPlotter(QtCore.QObject):
         self.ydata = list()
         self.lines = list()
 
-    def mk_figure(self, info: str):
+    def mk_figure(self, info: list):
         self.clr()
         fig = plt.figure()
         
         # Add custom tools to figure
         # TODO: Make button unenabled until measurement is completely taken? Can't add tool after plots are made.
-        # fig.canvas.manager.toolmanager.add_tool('Estimate Derivative', GenerateDerivativePlotButton)
-        # fig.canvas.manager.toolbar.add_tool('Estimate Derivative', 'custom')
-        
+        # fig.canvas.manager.toolmanager.add_tool('Plot FFT', PlotFFT)
+        # fig.canvas.manager.toolbar.add_tool('Plot FFT', 'custom')
+        # print(len(info))
+        # print(info)
+        procedure_info, line_name = info
         ax = fig.add_subplot(111)
         plt.title("Pump-probe Spectroscopy")
         plt.xlabel(r"Time delay, $\Delta t$ (ns)")
         plt.ylabel(r"Voltage (V)")
         plt.grid(True)
         plt.subplots_adjust(right=0.725)
-        line = ax.plot(self.xdata, self.ydata)[0]
+        line = ax.plot(self.xdata, self.ydata, label=line_name)[0]
         self.lines.append(line)
-        plt.text(1.05, 0.25, info, transform=ax.transAxes)
+        plt.text(1.05, 0.25, procedure_info, transform=ax.transAxes)
+        plt.legend()
         
-    def add_line(self):
+    def add_line(self, line_name: str):
         self.clr()
         ax = plt.gca()
-        line = ax.plot(self.xdata, self.ydata)[0]
+        # print(line_name)
+        line = ax.plot([0,0], label=line_name)[0]
         self.lines.append(line)
 
     def update_figure(self, data:list = None):

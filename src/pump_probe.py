@@ -14,22 +14,22 @@ class PumpProbeProcedureType(Enum):
     AMPLITUDE = 2
     IMAGE = 3
 
-"""
-Defines a mutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
-"""
 @dataclass()
 class Pulse:
+    """
+    Defines a mutable dataclass called Pulse to hold amplitude, width, edge, and time spread (pulse length) data for a specific pulse
+    """
     amp: float
     width: float
     edge: float
     time_spread: float
 
-"""
-Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
-    NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
-"""
 @dataclass()
 class PumpProbeExperiment:
+    """
+    Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
+        NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
+    """
     pump: Pulse
     probe: Pulse
     domain: tuple
@@ -65,11 +65,11 @@ class PumpProbeProcedure:
     experiments: List[PumpProbeExperiment]
     conversion_factor: float
 
-"""
-Defines a mutable dataclass PumpProbeConfig to hold semi-constant (globally used for all experiments but can be mutated) pump-probe configuration data
-"""
 @dataclass
 class PumpProbeConfig:
+    """
+    Defines a mutable dataclass PumpProbeConfig to hold semi-constant (globally used for all experiments but can be mutated) pump-probe configuration data
+    """
     stm_model: str
     lockin_ip: str
     lockin_port: int
@@ -78,25 +78,25 @@ class PumpProbeConfig:
     sample_rate: float
     save_path: str = ""
 
-"""
-Defines a PumpProbe class that connects and holds references to devices, experimental settings, and runs pump-probe experiments.
-"""
 class PumpProbe():
-    def __init__(self, config:PumpProbeConfig = None):
+    """
+    Defines a PumpProbe class that holds references to devices, experimental settings, and runs pump-probe experiments.
+    """
+    def __init__(self, stm: STM, config:PumpProbeConfig = None):
         super().__init__()
         self.config = config
-        self.stm: STM = RHK_R9()
+        self.stm: STM = stm
         self.lockin: LockIn = LockIn(ip=config.lockin_ip, port=config.lockin_port)
         self.awg: AWG = AWG(id=config.awg_id)
 
-    """
-    Returns a list of waveform points for a pulse. Minimum rise time, minimum pulse width, sample rate, and minimum arb length are hard coded from KeySight 33600A specs.
-        pulse : reference to Pulse object 
-            => width       : width of the pulse in seconds
-            => rise_time   : width of rising and falling edge of pulse in seconds 
-            => time_spread : period of the waveform
-    """
     def create_arb(self, pulse: Pulse) -> list:
+        """
+        Returns a list of waveform points for a pulse. Minimum rise time, minimum pulse width, sample rate, and minimum arb length are hard coded from KeySight 33600A specs.
+            pulse : reference to Pulse object 
+                => width       : width of the pulse in seconds
+                => rise_time   : width of rising and falling edge of pulse in seconds 
+                => time_spread : period of the waveform
+        """
         width = pulse.width
         rise_time = pulse.edge
         time_spread = pulse.time_spread
@@ -119,15 +119,23 @@ class PumpProbe():
 
         return pulse
 
-    """
-    Runs a pump-probe experiment by sweeping the phase of one of the pulses.
-        exp : PumpProbeExperiment to run
-    """
-    def run(self, procedure: PumpProbeProcedure, experiment_idx: int, new_arb:bool, plotter=None) -> Tuple[list, list]:
+    def run(self, procedure: PumpProbeProcedure, experiment_idx: int, new_arb: bool, plotter=None) -> Tuple[list, list]:
+        """
+        Runs a pump-probe experiment by sweeping the phase of one of the pulses.
+            procedure      : PumpProbeProcedure currently running
+            experiment_idx : index for PumpProbeExperiment to run
+            new_arb        : bool to decide with new waveform information needs to be sent to AWG
+            plotter        : optional ploting object to handle plotting
+        """
         exp = procedure.experiments[experiment_idx]
         proc_start = exp.domain[0]
         proc_end = exp.domain[1]
         samples = exp.samples
+        
+        # for phi in np.linspace(0, 2*np.pi, 500):
+        #     plotter._plot.emit([phi, exp.pump.amp*np.sin(phi)])
+        #     time.sleep(0.01)
+        # return ([],[])
         
         if new_arb:
             # Reset both devices
