@@ -69,6 +69,13 @@ class LockIn:
         time.sleep(3)
         return result
     
+    def set_sensitivity(self, sensitivity):
+        lockin_senstivity = {'10e-3' : 20}
+        if self.socket != None:
+            self.send(f'SEN {lockin_senstivity[sensitivity]}'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
+            time.sleep(0.2)
+
+    
     def default(self):
         if self.socket != None:
             self.send('IE 2'.encode()).expected(f"Lockin reference mode not set.")  #set reference mode to external front panel
@@ -77,7 +84,7 @@ class LockIn:
             time.sleep(0.2)
             self.send('VMODE 1'.encode()).expected("Lockin input not set.")  #A input only
             time.sleep(0.2)
-            self.send('SEN 20'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
+            self.send('SEN 22'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
             time.sleep(0.2)
             self.send('ACGAIN 5'.encode()).expected("Lockin gain not set.")  #set gain, 6 = 36 dB. dB = 6 * n
             time.sleep(0.2)
