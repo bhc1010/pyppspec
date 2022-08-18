@@ -47,11 +47,11 @@ class PumpProbeExperiment:
                 'Comment': ""}
     
     def generate_toml(self) -> str:
-        out =  f"[Date]\n{self.name}\n"
+        out =  f"Date = {self.name}\n"
         out += f"[Position]\nx = {self.stm_coords.x}\ny = {self.stm_coords.y}\n"
         out += f"[Pump]\namp = {self.pump.amp}\nwidth = {self.pump.width}\nedge = {self.pump.edge}\n"
         out += f"[Probe]\namp = {self.probe.amp}\nwidth = {self.probe.width}\nedge = {self.probe.edge}\n"
-        out += f"[Settings]\ndomain = {self.domain}\nsamples = {self.samples}\n"
+        out += f"[Settings]\ndomain = {self.domain}\nsamples = {self.samples}\nfixed_time_delay = {self.fixed_time_delay}"
         return out
 
 @dataclass()
