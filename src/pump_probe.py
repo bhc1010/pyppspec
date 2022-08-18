@@ -51,7 +51,7 @@ class PumpProbeExperiment:
         out += f"[Position]\nx: {self.stm_coords.x}\ny: {self.stm_coords.y}\n"
         out += f"[Pump]\namp: {self.pump.amp}\nwidth: {self.pump.width}\nedge: {self.pump.edge}\n"
         out += f"[Probe]\namp: {self.probe.amp}\nwidth: {self.probe.width}\nedge: {self.probe.edge}\n"
-        out += f"[Settings]\npulse length: {self.probe.time_spread}\nsamples: {self.samples}\n"
+        out += f"[Settings]\ndomain: {self.domain}\nsamples: {self.samples}\n"
         return out
 
 @dataclass()
@@ -64,6 +64,16 @@ class PumpProbeProcedure:
     channel: Channel
     experiments: List[PumpProbeExperiment]
     conversion_factor: float
+    
+    def generate_domain_title(self) -> str:
+        match self.proc_type:
+            case PumpProbeProcedureType.TIME_DELAY:
+                domain_title = r'Time delay, $\Delta t$ (ns)'
+            case PumpProbeProcedureType.AMPLITUDE:
+                domain_title = f'{self.channel.name.title()} amplitude (V)'
+            case _:
+                domain_title = ''
+        return domain_title
 
 @dataclass
 class PumpProbeConfig:
@@ -219,4 +229,4 @@ class PumpProbe():
         self.stm.set_tip_control("unlimit")
         time.sleep(1)
         
-        return (dx, data)
+        return (x, data)
