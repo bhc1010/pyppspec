@@ -117,14 +117,14 @@ class QPlotter(QtCore.QObject):
         
         # Add custom tools to figure
         # TODO: Make button unenabled until measurement is completely taken? Can't add tool after plots are made.
-        # fig.canvas.manager.toolmanager.add_tool('Plot FFT', PlotFFT)
-        # fig.canvas.manager.toolbar.add_tool('Plot FFT', 'custom')
-        # print(len(info))
-        # print(info)
-        procedure_info, line_name = info
+        fig.canvas.manager.toolmanager.add_tool('Plot FFT', PlotFFT)
+        fig.canvas.manager.toolbar.add_tool('Plot FFT', 'custom')
+
+        procedure_info, line_name, x_axis = info
         ax = fig.add_subplot(111)
         plt.title("Pump-probe Spectroscopy")
-        plt.xlabel(r"Time delay, $\Delta t$ (ns)")
+        # plt.xlabel(r"Time delay, $\Delta t$ (ns)")
+        plt.xlabel(x_axis)
         plt.ylabel(r"Voltage (V)")
         plt.grid(True)
         plt.subplots_adjust(right=0.725)

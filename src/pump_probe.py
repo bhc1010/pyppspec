@@ -142,11 +142,6 @@ class PumpProbe():
         proc_end = exp.domain[1]
         samples = exp.samples
         
-        # for phi in np.linspace(0, 2*np.pi, 500):
-        #     plotter._plot.emit([phi, exp.pump.amp*np.sin(phi)])
-        #     time.sleep(0.01)
-        # return ([],[])
-        
         if new_arb:
             # Reset both devices
             self.awg.reset()

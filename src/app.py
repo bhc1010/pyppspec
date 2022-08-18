@@ -48,7 +48,7 @@ class PumpProbeWorker(QtCore.QThread):
         dt, volt_data = data
         # Save measurement data
         out = pd.DataFrame({'Voltage': volt_data, 'Time Delay': dt})
-        path = os.path.join(self.pump_probe.config.save_path, exp.name)
+        path = os.path.join(self.pump_probe.config.save_path, f'{exp.name}.csv')
         if not os.path.isdir(path):
             os.mkdir(path)
         out.to_csv(os.path.join(path, exp.name), index=False)
@@ -70,7 +70,7 @@ class PumpProbeWorker(QtCore.QThread):
         self._running_pp = False
         self._new_arb = True
 
-        ## Check if devices are connected
+        # Check if devices are connected
         lockin_result = self.connect_device(self.pump_probe.lockin, self._lockin_status, "Lock-in")
         awg_result = self.connect_device(self.pump_probe.awg, self._awg_status, "AWG")
         stm_result = self.connect_device(self.pump_probe.stm, self._stm_status, self.pump_probe.config.stm_model)
@@ -131,13 +131,9 @@ class PumpProbeWorker(QtCore.QThread):
                     line_name = None
 
                 # Make new figure 
-                # print("exp_idx: ", exp_idx)
-                # print(procedure.single_plot)
                 if exp_idx == 0 or not procedure.single_plot:
-                    self._make_figure.emit([exp.generate_toml(), line_name])
-                    # print("made new figure")
+                    self._make_figure.emit([exp.generate_toml(), line_name, procedure.generate_domain_title()])
                 else:
-                    # print("added new line")
                     self._add_line.emit(line_name)
 
                     
@@ -161,13 +157,14 @@ class PumpProbeWorker(QtCore.QThread):
                     return
                 
                 # Add zero line to plot
-                zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
-                self._zero_line.emit(zero)
+                if procedure.proc_type == PumpProbeProcedureType.TIME_DELAY:
+                    zero = (2*exp.pump.edge + exp.pump.width) * self.pump_probe.config.sample_rate
+                    self._zero_line.emit(zero)
                 
                 # Save data
                 self.save_data(exp, (dt, volt_data))
                 
-                # Check if next experiment in queue is a repeat arb
+                # Set previous experment to experiment just run
                 self.pump_probe.prev_exp = exp
             
             # Remove experiment from queue data and top row

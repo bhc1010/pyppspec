@@ -6,10 +6,10 @@ import numpy as np
 
 Vector2 = namedtuple("Vector2", "x y")
 
-"""
-Result class to deal with error handling of device connections
-"""
 class Result:
+    """
+    Result class to deal with error handling of device connections
+    """
     def __init__(self, msg:str, err:bool) -> None:
         self.msg = msg
         self.err = err
@@ -20,21 +20,25 @@ class Result:
     def report(self, out: list):
         out.append(self.msg)
 
-    """
-    Reports msg to console if Result is an error
-    """
     def expected(self, msg:str):
+        """
+        Reports msg to console if Result is an error
+        """
         if self.err == True:
             print(msg)
         return self
         
-"""
-"""
 class LockIn:
+    """
+    LockIn class to interface with LockIn device. LockIn commands are defined in lockin_commands dictionary. This can be changed for easily implementing different instruments.
+        ip   : lockin is setup to connect via ethernet, this is its ip address
+        port : port number for python socket to connect from
+    """
     def __init__(self, ip: str, port: int):
         self.ip = ip
         self.port = port
         self.socket = None
+        self.sensitivity_dict = {'10e-3' : 20}
 
     def connect(self) -> Result:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -70,11 +74,9 @@ class LockIn:
         return result
     
     def set_sensitivity(self, sensitivity):
-        lockin_senstivity = {'10e-3' : 20}
         if self.socket != None:
-            self.send(f'SEN {lockin_senstivity[sensitivity]}'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
+            self.send(f'SEN {self.senstivity_dict[sensitivity]}'.encode()).expected("Lockin sensitivity not set.")  #sensitivity 10 mV
             time.sleep(0.2)
-
     
     def default(self):
         if self.socket != None:
@@ -97,10 +99,10 @@ class LockIn:
             self.send('LF 0'.encode()).expected("Lockin line frequency rejection filter not turned off")  #'turn off line frequency rejection filter
             time.sleep(0.2)
 
-"""
-Define AWG class to handle all communication with arbitrary waveform generator.
-"""
 class AWG:
+    """
+    Define AWG class to handle all communication with arbitrary waveform generator.
+    """
     def __init__(self, id) -> None:
         self.id = id
         self.device : pyvisa.resources.USBInstrument = None
@@ -155,12 +157,12 @@ class AWG:
     def close_channel(self, channel) -> Result:
         return self.write(f'OUTPut{channel} OFF')
 
-    """
-    Sets amplitude for waveform on given channel
-        amp: amplitude to set
-        ch : arb channel
-    """
     def set_amp(self, amp:float, ch:int):
+        """
+        Sets amplitude for waveform on given channel
+            amp: amplitude to set
+            ch : arb channel
+        """
         # Set amplitude
         msg = f'SOURce{ch}:VOLT {amp}'
         self.write(msg)
@@ -171,25 +173,25 @@ class AWG:
         self.write(msg)
         self.wait()
     
-    """
-    Sets phase for waveform on given channel
-        phase : phase to set 
-        ch    : arb channel
-    """
     def set_phase(self, phase:float, ch:int):
+        """
+        Sets phase for waveform on given channel
+            phase : phase to set 
+            ch    : arb channel
+        """
         msg = f'SOURce{ch}:PHASe:ARB {phase}'
         self.write(msg)
         self.wait()
         
-    """
-    Sends an arbitrary waveform to device.
-        arb         : list of waveform points
-        amp         : amplitude of waveform
-        sample_rate : sample rate of the waveform
-        name        : name of the waveform file
-        channel     : channel of arbitrary waveform generator to send waveform
-    """
     def send_arb_ch(self, arb:list, amp:float, sample_rate:float, name:str, channel:int) -> None:
+        """
+        Sends an arbitrary waveform to device.
+            arb         : list of waveform points
+            amp         : amplitude of waveform
+            sample_rate : sample rate of the waveform
+            name        : name of the waveform file
+            channel     : channel of arbitrary waveform generator to send waveform
+        """
         # Use single precision for waveform data
         arb = np.single(arb)
 
@@ -242,12 +244,12 @@ class AWG:
         else:
             print('Error reported: ' + error)
 
-    """
-    Modulates the amplitude of the waveform on the specified channel of device by a square wave with frequency freq.
-        freq    : modulation frequency
-        channel : channel of arbitrary waveform generator to modulate
-    """
     def modulate_ampitude(self, freq:float, channel:int) -> None:
+        """
+        Modulates the amplitude of the waveform on the specified channel of device by a square wave with frequency freq.
+            freq    : modulation frequency
+            channel : channel of arbitrary waveform generator to modulate
+        """
         # Define source name
         sName = f'SOURce{channel}:'
 
@@ -286,13 +288,12 @@ class AWG:
         self.device.write(msg)
         self.device.write('*WAI')
         
-
-    """
-    Syncs all channels on device. By default, neither phase nor function data are synced.
-        syncPhase : resets all phase generators on self.device
-        syncFunc  : restarts arbitrary waveforms at first sample simultaneously
-    """
     def sync_channels(self, syncPhase=False, syncFunc=False) -> None:
+        """
+        Syncs all channels on device. By default, neither phase nor function data are synced.
+            syncPhase : resets all phase generators on self.device
+            syncFunc  : restarts arbitrary waveforms at first sample simultaneously
+        """
         if syncFunc:
             self.device.write('FUNC:ARB:SYNC') 
             self.device.write('*WAI')
@@ -302,22 +303,21 @@ class AWG:
             self.device.write('*WAI')
 
 
-    """
-    Combines waveforms from two channels and feeds the result to out.
-        out   : waveform on out is combined with waveform on feed and result is fed to out
-        feed  : waveform on feed is used for combining but output doesn't change
-    """
     def combine_channels(self, out:int, feed:int) -> None:
+        """
+        Combines waveforms from two channels and feeds the result to out.
+            out   : waveform on out is combined with waveform on feed and result is fed to out
+            feed  : waveform on feed is used for combining but output doesn't change
+        """
         self.device.write(f'SOURce{out}:COMBine:FEED CH{feed}')
         self.device.write('*WAI')
 
 
 
-"""
-Base STM class from which specific STM model classes inherit.
-*** Only RHK R9 implemented ***
-"""
 class STM:
+    """
+    Base STM class from which specific STM model classes inherit.
+    """
     def __init__(self, model:str, ip:str, port:int) -> None:
         self.model = model
         self.ip = ip
@@ -345,17 +345,17 @@ class STM:
     def set_position(self) -> None:
        pass 
     
-    """
-    Returns tip position in scan space as a vector
-    """
     def get_position(self) -> Vector2:
+        """
+        Returns tip position in scan space as a vector
+        """
         pass
 
-"""
-Implementation of RHK R9. Inherits from STM. 
-NOTE: Not sure which variables/methods are specifc to RHK R9. Most implementation is done spefically in RHK_R9 for now.
-"""
 class RHK_R9(STM):
+    """
+    Implementation of RHK R9. Inherits from STM. 
+    TODO: make stm command dict to use only STM class. Other instruments could then be implemented by changing only the exact external commands the STM
+    """
     def __init__(self, ip: str = '127.0.0.1', port:int = 12600):
         super().__init__("RHK R9", ip, port)
         self.outgoingQueue = None
@@ -368,27 +368,27 @@ class RHK_R9(STM):
             self._socket.shutdown(2)
             self._socket.close()
             
-    """
-    Sets STM tip control mode to tip_mode. (e.g. set_tip_control("freeze"), set_tip_control("unlimit"))
-    """
     def set_tip_control(self, tip_mode:str):
+        """
+        Sets STM tip control mode to tip_mode. (e.g. set_tip_control("freeze"), set_tip_control("unlimit"))
+        """
         tip_mode = tip_mode.title()
         cmd = f'SetHWParameter, Z PI Controller 1, Tip Control, {tip_mode}\n'
         self._socket.send(cmd.encode())
         self._socket.recv(self._buffer_size)
         
-    """
-    Sets STM bias to bias
-    """
     def set_bias(self, bias: float):
+        """
+        Sets STM bias to bias
+        """
         cmd = f'SetSWParameter, STM Bias, Value, {bias}\n'
         self._socket.send(cmd.encode())
         self._socket.recv(self._buffer_size)
         
-    """
-    Returns current STM bias
-    """
     def get_bias(self):
+        """
+        Returns current STM bias
+        """
         cmd = f'GetSWParameter, STM Bias, Value\n'
         self._socket.send(cmd.encode())
         bias = self._socket.recv(self._buffer_size).decode()
@@ -400,11 +400,11 @@ class RHK_R9(STM):
             bias = self._socket.recv(self._buffer_size).decode()
             return float(bias)
         
-    """
-    Returns the current tip position as a Vector2.
-    TODO: What are the offset values relative to? The center of the scan window? global scan space?
-    """
     def get_position(self) -> Vector2:
+        """
+        Returns the current tip position as a Vector2.
+        TODO: Not currently working. Seems that getting "Tip X in scan coordinates" is not implemented? But XOffset is not the same thing. Same for Y coordinate.
+        """
         cmd = 'GetSWParameter, Scan Area Window, Tip X in scan coordinates\n'
         self._socket.send(cmd.encode())
         x = self._socket.recv(self._buffer_size)
