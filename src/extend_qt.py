@@ -57,6 +57,12 @@ class PlotFFT(ToolBase):
         ax.set_ylabel('Power Spectrum Density')
         ax.set_title('FFT Power Spectrum Density')
 
+class FlipData(ToolBase):
+    def trigger(self, *args, **kwargs):
+        line = self.figure.axes[0].lines[0]
+        voltage = np.array(line.get_data()[1])
+        line.set_ydata(-voltage)
+
 class GenerateDerivativePlotButton(ToolBase):
     """
     """
@@ -117,8 +123,11 @@ class QPlotter(QtCore.QObject):
         
         # Add custom tools to figure
         # TODO: Make button unenabled until measurement is completely taken? Can't add tool after plots are made.
-        fig.canvas.manager.toolmanager.add_tool('Plot FFT', PlotFFT)
-        fig.canvas.manager.toolbar.add_tool('Plot FFT', 'custom')
+        fig.canvas.manager.toolmanager.add_tool('Flip Data', FlipData)
+        fig.canvas.manager.toolbar.add_tool('Flip Data', 'custom')
+        
+        fig.canvas.manager.toolmanager.add_tool('Plot FFT PSD', PlotFFT)
+        fig.canvas.manager.toolbar.add_tool('Plot FFT PSD', 'custom')
 
         procedure_info, line_name, x_axis = info
         ax = fig.add_subplot(111)
