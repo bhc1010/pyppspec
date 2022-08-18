@@ -123,7 +123,6 @@ class QPlotter(QtCore.QObject):
         procedure_info, line_name, x_axis = info
         ax = fig.add_subplot(111)
         plt.title("Pump-probe Spectroscopy")
-        # plt.xlabel(r"Time delay, $\Delta t$ (ns)")
         plt.xlabel(x_axis)
         plt.ylabel(r"Voltage (V)")
         plt.grid(True)
