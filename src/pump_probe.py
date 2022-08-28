@@ -1,6 +1,6 @@
 import os, time
 import numpy as np
-from devices import RHK_R9, STM, LockIn, AWG, Vector2
+from devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable, List
 from enum import IntEnum, Enum
@@ -141,6 +141,12 @@ class PumpProbe():
         proc_start = exp.domain[0]
         proc_end = exp.domain[1]
         samples = exp.samples
+        
+        # f = 60
+        # for t in np.linspace(0, 1/f, samples):
+        #     plotter._plot.emit([t, np.sin(2*np.pi*t*f)])
+        #     time.sleep(1/samples)
+        # return ([],[])
         
         if new_arb:
             # Reset both devices

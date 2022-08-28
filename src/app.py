@@ -48,10 +48,10 @@ class PumpProbeWorker(QtCore.QThread):
         dt, volt_data = data
         # Save measurement data
         out = pd.DataFrame({'Voltage': volt_data, 'Time Delay': dt})
-        path = os.path.join(self.pump_probe.config.save_path, f'{exp.name}.csv')
+        path = os.path.join(self.pump_probe.config.save_path, exp.name)
         if not os.path.isdir(path):
             os.mkdir(path)
-        out.to_csv(os.path.join(path, exp.name), index=False)
+        out.to_csv(os.path.join(path, f'{exp.name}.csv'), index=False)
 
         # Save measurement figure
         meta = exp.generate_meta()
