@@ -101,7 +101,7 @@ class LockIn:
 
 class AWG:
     """
-    Define AWG class to handle all communication with arbitrary waveform generator.
+    Handles all communication with an arbitrary waveform generator via PyVisa.
     """
     def __init__(self, id) -> None:
         self.id = id
@@ -354,7 +354,7 @@ class STM:
 class RHK_R9(STM):
     """
     Implementation of RHK R9. Inherits from STM. 
-    TODO: make stm command dict to use only STM class. Other instruments could then be implemented by changing only the exact external commands the STM
+    TODO?: make stm command dict to use only STM class. Other instruments could then be implemented by changing only the exact external commands the STM
     """
     def __init__(self, ip: str = '127.0.0.1', port:int = 12600):
         super().__init__("RHK R9", ip, port)
