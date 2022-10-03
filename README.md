@@ -7,6 +7,3 @@ Pump probe related logic is contained in pump_probe.py while classes for device 
 - Python 3.10
 - pyvisa
 - numpy
-### Frontend requirements:
-- matplotlib
-- pyqt5
