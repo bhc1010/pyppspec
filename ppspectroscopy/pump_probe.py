@@ -1,6 +1,6 @@
 import os, time
 import numpy as np
-from devices import STM, LockIn, AWG, Vector2
+from ppspectroscopy.devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable, List
 from enum import IntEnum, Enum
@@ -91,8 +91,9 @@ class PumpProbeConfig:
 class PumpProbe():
     """
     Defines a PumpProbe class that holds references to devices, experimental settings, and runs pump-probe experiments.
+    TODO: Refactor stm, lockin, and awg initialization from __init__ to class methods.
     """
-    def __init__(self, stm: STM, config:PumpProbeConfig = None):
+    def __init__(self, stm: STM, config: PumpProbeConfig):
         super().__init__()
         self.config = config
         self.stm: STM = stm

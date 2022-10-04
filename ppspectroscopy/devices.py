@@ -9,6 +9,7 @@ Vector2 = namedtuple("Vector2", "x y")
 class Result:
     """
     Result class to deal with error handling of device connections
+    TODO: depricate Result class.
     """
     def __init__(self, msg:str, err:bool) -> None:
         self.msg = msg
