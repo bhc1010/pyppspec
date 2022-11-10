@@ -38,7 +38,7 @@ class PumpProbeExperiment:
     stm_coords: Vector2 = Vector2(0,0)
     name: str = ""
     
-    def generate_meta(self):
+    def generate_meta(self) -> dict:
         return {'Title': self.name,
                 'Author': os.environ.get('USERNAME'),
                 'Description': f"An STM pump-probe measurement. Settings: {repr(self)}",
@@ -46,12 +46,24 @@ class PumpProbeExperiment:
                 'Software': "ppspectroscopy",
                 'Comment': ""}
     
-    def generate_toml(self) -> str:
-        out =  f"Date = {self.name}\n"
-        out += f"[Position]\nx = {self.stm_coords.x}\ny = {self.stm_coords.y}\n"
-        out += f"[Pump]\namp = {self.pump.amp}\nwidth = {self.pump.width}\nedge = {self.pump.edge}\n"
-        out += f"[Probe]\namp = {self.probe.amp}\nwidth = {self.probe.width}\nedge = {self.probe.edge}\n"
-        out += f"[Settings]\ndomain = {self.domain}\nsamples = {self.samples}\nfixed_time_delay = {self.fixed_time_delay}"
+    def generate_csv_head(self) -> List[str]:
+        out =  []
+        out.append(['[Date]', f'{self.name}'])
+        out.append(['[Position]' ,'-'])
+        out.append(['x', f'{self.stm_coords.x}'])
+        out.append(['y', f'{self.stm_coords.y}'])
+        out.append(['[Pump]', '-'])
+        out.append(['amp', f'{self.pump.amp}'])
+        out.append(['width',  f'{self.pump.width}'])
+        out.append(['edge', f'{self.pump.edge}'])
+        out.append(['[Probe]', '-'])
+        out.append(['amp', f'{self.probe.amp}'])
+        out.append(['width',  f'{self.probe.width}'])
+        out.append(['edge', f'{self.probe.edge}'])
+        out.append(['[Settings]', '-'])
+        out.append(['domain', f'{self.domain}'])
+        out.append(['samples', f'{self.samples}'])
+        out.append(['fixed time delay', f'{self.fixed_time_delay}'])
         return out
 
 @dataclass()
