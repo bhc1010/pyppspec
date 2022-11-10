@@ -4,6 +4,7 @@ A python package for preforming all-electronic pump-probe spectroscopy via scann
 Pump probe related logic is contained in pump_probe.py while classes for device communication are in devices.py.
 
 ## Requirements:
-- Python 3.10
+- Python 3.7
 - pyvisa
 - numpy
+- pandas
