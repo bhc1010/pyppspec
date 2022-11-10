@@ -78,13 +78,12 @@ class PumpProbeProcedure:
     conversion_factor: float
     
     def generate_domain_title(self) -> str:
-        match self.proc_type:
-            case PumpProbeProcedureType.TIME_DELAY:
-                domain_title = r'Time delay, $\Delta t$ (ns)'
-            case PumpProbeProcedureType.AMPLITUDE:
-                domain_title = f'{self.channel.name.title()} amplitude (V)'
-            case _:
-                domain_title = ''
+        if self.proc_type == PumpProbeProcedureType.TIME_DELAY:
+            domain_title = r'Time delay, $\Delta t$ (ns)'
+        elif self.proc_type == PumpProbeProcedureType.AMPLITUDE:
+            domain_title = f'{self.channel.name.title()} amplitude (V)'
+        else:
+            domain_title = ''
         return domain_title
 
 @dataclass
