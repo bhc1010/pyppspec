@@ -1,8 +1,11 @@
-from collections import namedtuple
+import logging
 import time
 import socket
 import pyvisa
 import numpy as np
+from collections import namedtuple
+
+logging.basicConfig(format='%(asctime)s | %(levelname)s: %(message)s', level=logging.NOTSET)
 
 Vector2 = namedtuple("Vector2", "x y")
 
@@ -26,7 +29,7 @@ class Result:
         Reports msg to console if Result is an error
         """
         if self.err == True:
-            print(msg)
+            logging.error(msg)
         return self
         
 class LockIn:
@@ -241,9 +244,9 @@ class AWG:
         error = self.query('SYST:ERR?').result()
 
         if error[0:13] == '+0,"No error"':
-            print('Waveform transfered without error. Instrument ready for use.')
+            logging.info('Waveform transfered without error. Instrument ready for use.')
         else:
-            print('Error reported: ' + error)
+            logging.error(error)
 
     def modulate_ampitude(self, freq:float, channel:int) -> None:
         """
@@ -376,7 +379,12 @@ class RHK_R9(STM):
         tip_mode = tip_mode.title()
         cmd = f'SetHWParameter, Z PI Controller 1, Tip Control, {tip_mode}\n'
         self._socket.send(cmd.encode())
-        self._socket.recv(self._buffer_size)
+        err = self._socket.recv(self._buffer_size)
+
+        if err != b'Done':
+            logging.error(err)
+        else:
+            logging.info(f'STM tip control set to {tip_mode}')
         
     def set_bias(self, bias: float):
         """
@@ -384,7 +392,13 @@ class RHK_R9(STM):
         """
         cmd = f'SetSWParameter, STM Bias, Value, {bias}\n'
         self._socket.send(cmd.encode())
-        self._socket.recv(self._buffer_size)
+        err = self._socket.recv(self._buffer_size)
+
+        if err != b'Done':
+            logging.error(e)
+        else:
+            logging.info(f'STM bias set to {bias}.')
+        
         
     def get_bias(self):
         """
@@ -401,21 +415,40 @@ class RHK_R9(STM):
             bias = self._socket.recv(self._buffer_size).decode()
             return float(bias)
         
+    def set_position(self, x: float, y: float) -> None:
+        """
+        Set the STM tip to (x, y) in scan coordinates
+        """
+        msg = np.array([])
+
+        cmd = f'SetSWParameter, Scan Area Window, Tip X in scan coordinates, {x}\n'
+        self._socket.send(cmd.encode())
+        msg = np.append(self._socket.recv(self._buffer_size))
+        
+        cmd = f'SetSWParameter, Scan Area Window, Tip Y in scan coordinates, {x}\n'
+        self._socket.send(cmd.encode())
+        msg = np.append(self._socket.recv(self._buffer_size))
+
+        err = msg[msg != b'Done']
+
+        if len(err) > 0:
+            for e in err:
+                logging.error(e)
+        else:
+            logging.info(f'STM tip sent to ({x}, {y}) in scan coordinates.')
+
     def get_position(self) -> Vector2:
         """
         Returns the current tip position as a Vector2.
-        TODO: Not currently working. Seems that getting "Tip X in scan coordinates" is not implemented? But XOffset is not the same thing. Same for Y coordinate.
         """
         cmd = 'GetSWParameter, Scan Area Window, Tip X in scan coordinates\n'
         self._socket.send(cmd.encode())
         x = self._socket.recv(self._buffer_size)
-        print(f'x: {x}')
         
         cmd = 'GetSWParameter, Scan Area Window, Tip Y in scan coordinates\n'
         self._socket.send(cmd.encode())
         y = self._socket.recv(self._buffer_size)
-        print(f"y: {y}")
-        
+
         return Vector2(x=x, y=y)
     
     def image(self):
