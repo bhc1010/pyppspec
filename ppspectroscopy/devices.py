@@ -1,11 +1,22 @@
-import logging
 import time
 import socket
 import pyvisa
 import numpy as np
 from collections import namedtuple
+import logging, sys
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s: %(message)s', level=logging.NOTSET)
+
+# Setup logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter = logging.Formatter(fmt='%(asctime)s | %(levelname)s: %(message)s')
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+fh = logging.FileHandler('log.log', 'w')
+fh.setFormatter(formatter)
+log.addHandler(ch)
+log.addHandler(fh)
 
 Vector2 = namedtuple("Vector2", "x y")
 
@@ -29,7 +40,7 @@ class Result:
         Reports msg to console if Result is an error
         """
         if self.err == True:
-            logging.error(msg)
+            log.error(msg)
         return self
         
 class LockIn:
@@ -244,9 +255,9 @@ class AWG:
         error = self.query('SYST:ERR?').result()
 
         if error[0:13] == '+0,"No error"':
-            logging.info('Waveform transfered without error. Instrument ready for use.')
+            log.info('Waveform transfered without error. Instrument ready for use.')
         else:
-            logging.error(error)
+            log.error(error)
 
     def modulate_ampitude(self, freq:float, channel:int) -> None:
         """
@@ -382,9 +393,9 @@ class RHK_R9(STM):
         err = self._socket.recv(self._buffer_size)
 
         if err != b'Done':
-            logging.error(err)
+            log.error(err)
         else:
-            logging.info(f'STM tip control set to {tip_mode}')
+            log.info(f'STM tip control set to {tip_mode}')
         
     def set_bias(self, bias: float):
         """
@@ -395,9 +406,9 @@ class RHK_R9(STM):
         err = self._socket.recv(self._buffer_size)
 
         if err != b'Done':
-            logging.error(err)
+            log.error(err)
         else:
-            logging.info(f'STM bias set to {bias}.')
+            log.info(f'STM bias set to {bias}.')
         
         
     def get_bias(self):
@@ -433,9 +444,9 @@ class RHK_R9(STM):
 
         if len(err) > 0:
             for e in err:
-                logging.error(e)
+                log.error(e)
         else:
-            logging.info(f'STM tip sent to ({x}, {y}) in scan coordinates.')
+            log.info(f'STM tip sent to ({x}, {y}) in scan coordinates.')
 
     def get_position(self) -> Vector2:
         """
