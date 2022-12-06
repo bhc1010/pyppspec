@@ -53,12 +53,14 @@ class LockIn:
         self.ip = ip
         self.port = port
         self.socket = None
+        self.connected = False
         self.sensitivity_dict = {'10e-3' : 20}
 
     def connect(self) -> Result:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.socket.connect((self.ip, self.port))
+            self.connected = True
         except socket.error as e:
             self.socket = None
             return Result(msg=repr(e), err=True)
@@ -84,6 +86,7 @@ class LockIn:
                 return Result(msg=result, err=False)
 
     def reset(self) -> Result:
+        log.info('Resetting lock-in.')
         result = self.socket.send('*CLS'.encode())
         time.sleep(3)
         return result
@@ -121,10 +124,12 @@ class AWG:
     def __init__(self, id) -> None:
         self.id = id
         self.device : pyvisa.resources.USBInstrument = None
+        self.connected =  False
     
     def connect(self) -> Result:
         try:
             self.device = pyvisa.ResourceManager().open_resource(self.id)
+            self.connected = True
         except pyvisa.errors.VisaIOError as e:
             return Result(msg=repr(e), err=True)
         else:
@@ -149,6 +154,7 @@ class AWG:
                 return Result(msg=result, err=False)
 
     def reset(self) -> Result:
+        log.info('Resetting AWG waveform.')
         result = self.device.write('*RST')
         time.sleep(5)
         return result
@@ -167,9 +173,11 @@ class AWG:
 
 
     def open_channel(self, channel) -> Result:
+        log.info(f'Opening channel {channel}.')
         return self.write(f'OUTPut{channel} ON')
 
     def close_channel(self, channel) -> Result:
+        log.info(f'Closing channel {channel}.')
         return self.write(f'OUTPut{channel} OFF')
 
     def set_amp(self, amp:float, ch:int):
@@ -227,6 +235,7 @@ class AWG:
         # Send header and waveform data to instrument in binary format
         # (currently using pyvisas built-in write_binary_values function. could be causing an error but waveform seems to be loading onto AWG just fine.)
         # arbBytes = str(len(arb) * 4)
+        log.info('Downloading waveform to AWG.')
         header = sName + 'DATA:ARBitrary ' + name + f',' #{len(arbBytes)}' + arbBytes
         self.device.write_binary_values(header, arb)
         
@@ -255,7 +264,7 @@ class AWG:
         error = self.query('SYST:ERR?').result()
 
         if error[0:13] == '+0,"No error"':
-            log.info('Waveform transfered without error. Instrument ready for use.')
+            log.info('Waveform transfered without error.')
         else:
             log.error(error)
 
@@ -337,6 +346,7 @@ class STM:
         self.model = model
         self.ip = ip
         self.port = port
+        self.connected = False
         
         self._socket = None 
         self._buffer_size = 1024
@@ -345,6 +355,7 @@ class STM:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self._socket.connect((self.ip, self.port))
+            self.connected = True
         except socket.error as e:
             self.socket = None
             return Result(msg=repr(e), err=True)
@@ -405,10 +416,11 @@ class RHK_R9(STM):
         self._socket.send(cmd.encode())
         err = self._socket.recv(self._buffer_size)
 
-        if err != b'Done':
+        while(err != b'Done'):
             log.error(err)
-        else:
-            log.info(f'STM bias set to {bias}.')
+            self._socket.send(cmd.encode())
+            err = self._socket.recv(self._buffer_size)
+        log.info(f'STM bias set to {bias}.')
         
         
     def get_bias(self):
@@ -421,7 +433,6 @@ class RHK_R9(STM):
         try:
             return float(bias)
         except:
-            cmd = f'GetSWParameter, STM Bias, Value\n'
             self._socket.send(cmd.encode())
             bias = self._socket.recv(self._buffer_size).decode()
             return float(bias)
@@ -454,13 +465,22 @@ class RHK_R9(STM):
         """
         cmd = 'GetSWParameter, Scan Area Window, Tip X in scan coordinates\n'
         self._socket.send(cmd.encode())
-        x = self._socket.recv(self._buffer_size)
+        x = float(self._socket.recv(self._buffer_size))
         
         cmd = 'GetSWParameter, Scan Area Window, Tip Y in scan coordinates\n'
         self._socket.send(cmd.encode())
-        y = self._socket.recv(self._buffer_size)
-
-        return Vector2(x=x, y=y)
+        y = float(self._socket.recv(self._buffer_size))
+        try:
+            return Vector2(x=x, y=y)
+        except:
+            cmd = 'GetSWParameter, Scan Area Window, Tip X in scan coordinates\n'
+            self._socket.send(cmd.encode())
+            x = float(self._socket.recv(self._buffer_size))
+            
+            cmd = 'GetSWParameter, Scan Area Window, Tip Y in scan coordinates\n'
+            self._socket.send(cmd.encode())
+            y = float(self._socket.recv(self._buffer_size))
+            return Vector2(x=x, y=y)
     
     def image(self):
         pass
