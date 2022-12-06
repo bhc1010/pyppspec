@@ -125,7 +125,7 @@ class AWG:
     def connect(self) -> Result:
         try:
             self.device = pyvisa.ResourceManager().open_resource(self.id)
-        except ValueError as e:
+        except pyvisa.errors.VisaIOError as e:
             return Result(msg=repr(e), err=True)
         else:
             return Result(msg=f"[{self.id}] Connected", err=False)
