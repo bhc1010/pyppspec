@@ -395,7 +395,7 @@ class RHK_R9(STM):
         err = self._socket.recv(self._buffer_size)
 
         if err != b'Done':
-            logging.error(e)
+            logging.error(err)
         else:
             logging.info(f'STM bias set to {bias}.')
         
