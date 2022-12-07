@@ -4,6 +4,7 @@ from ppspectroscopy.devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable, List
 from enum import IntEnum, Enum
+from datetime import datetime
 
 class Channel(IntEnum):
     PROBE = 1
@@ -30,26 +31,25 @@ class PumpProbeExperiment:
     Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
         NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
     """
+    date: datetime
     pump: Pulse
     probe: Pulse
     domain: tuple
     samples: int
     fixed_time_delay: float = None
     stm_coords: Vector2 = Vector2(0,0)
-    name: str = ""
     
     def generate_meta(self) -> dict:
-        return {'Title': self.name,
-                'Author': os.environ.get('USERNAME'),
+        return {'Author': os.environ.get('USERNAME'),
                 'Description': f"An STM pump-probe measurement. Settings: {repr(self)}",
-                'Creation Time': self.name,
+                'Creation Time': self.date,
                 'Software': "ppspectroscopy",
                 'Comment': ""}
     
     def generate_csv_head(self) -> List[str]:
         out =  []
         out.append(['[Date]', ''])
-        out.append([f'{self.name}', ''])
+        out.append([f'{self.date}', ''])
         out.append(['[Position]' ,''])
         out.append(['x', f'{self.stm_coords.x}'])
         out.append(['y', f'{self.stm_coords.y}'])
