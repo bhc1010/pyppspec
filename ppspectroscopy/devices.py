@@ -1,19 +1,21 @@
+import os, sys, logging
 import time
 import socket
 import pyvisa
 import numpy as np
 from collections import namedtuple
-import logging, sys
 
 
 # Setup logging
+if not os.path.isdir('log'):
+    os.mkdir('log')
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(fmt='%(asctime)s | %(levelname)s: %(message)s')
 ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.DEBUG)
 ch.setFormatter(formatter)
-fh = logging.FileHandler('log.log', 'w')
+fh = logging.FileHandler(r'log/devices.log', 'w')
 fh.setFormatter(formatter)
 log.addHandler(ch)
 log.addHandler(fh)
@@ -23,7 +25,6 @@ Vector2 = namedtuple("Vector2", "x y")
 class Result:
     """
     Result class to deal with error handling of device connections
-    TODO: depricate Result class.
     """
     def __init__(self, msg:str, err:bool) -> None:
         self.msg = msg
