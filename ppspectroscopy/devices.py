@@ -1,30 +1,15 @@
-import os, sys, logging
 import time
 import socket
 import pyvisa
 import numpy as np
 from collections import namedtuple
-
-
-# Setup logging
-if not os.path.isdir('log'):
-    os.mkdir('log')
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-formatter = logging.Formatter(fmt='%(asctime)s | %(levelname)s: %(message)s')
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-fh = logging.FileHandler(r'log/devices.log', 'w')
-fh.setFormatter(formatter)
-log.addHandler(ch)
-log.addHandler(fh)
+import logging
 
 Vector2 = namedtuple("Vector2", "x y")
 
 class Result:
     """
-    Result class to deal with error handling of device connections
+    Result class to deal with error handling and passing logging infomation to user
     """
     def __init__(self, msg:str, err:bool) -> None:
         self.msg = msg
@@ -36,14 +21,14 @@ class Result:
     def report(self, out: list):
         out.append(self.msg)
 
-    def expected(self, msg:str):
+    def expected(self, msg:str, logger:logging.Logger):
         """
         Reports msg to console if Result is an error
         """
         if self.err == True:
-            log.error(msg)
+            logger.error(msg)
         return self
-        
+
 class LockIn:
     """
     LockIn class to interface with LockIn device. LockIn commands are defined in lockin_commands dictionary. This can be changed for easily implementing different instruments.
@@ -66,16 +51,16 @@ class LockIn:
             self.socket = None
             return Result(msg=repr(e), err=True)
         else:
-            return Result(msg="Connected", err=False)
+            return Result(msg=f"Connected with IP address {self.ip} on port {self.port}", err=False)
 
     def send(self, msg: str) -> Result:
         if self.socket != None:
             try:
-                self.socket.send(msg)
+                self.socket.send(msg.encode())
             except socket.error as e:
                 return Result(msg=repr(e), err=True)
             else:
-                return Result(msg=f"[{self.ip}] Sent {msg}", err=False)
+                return Result(msg=f"Successfully sent '{msg}' to {self.ip}", err=False)
     
     def recv(self, buffer: int) -> Result:
         if self.socket != None:
@@ -87,8 +72,7 @@ class LockIn:
                 return Result(msg=result, err=False)
 
     def reset(self) -> Result:
-        log.info('Resetting lock-in.')
-        result = self.socket.send('*CLS'.encode())
+        result = self.socket.send('*CLS')
         time.sleep(3)
         return result
     
@@ -134,7 +118,7 @@ class AWG:
         except pyvisa.errors.VisaIOError as e:
             return Result(msg=repr(e), err=True)
         else:
-            return Result(msg=f"[{self.id}] Connected", err=False)
+            return Result(msg=f"Connected with VISA device {self.id}", err=False)
 
     def write(self, msg:str) -> Result:
         if self.device != None:
@@ -143,7 +127,7 @@ class AWG:
             except pyvisa.Error as e:
                 return Result(msg=repr(e), err=True)
             else:
-                return Result(msg=f"[{self.id}] Sent '{msg}'", err=False)
+                return Result(msg=f"Successfully sent '{msg}' to {self.id}", err=False)
 
     def query(self, msg:str) -> Result:
         if self.device != None:
@@ -155,8 +139,7 @@ class AWG:
                 return Result(msg=result, err=False)
 
     def reset(self) -> Result:
-        log.info('Resetting AWG waveform.')
-        result = self.device.write('*RST')
+        result = self.write('*RST')
         time.sleep(5)
         return result
 
@@ -170,15 +153,12 @@ class AWG:
             except pyvisa.Error as e:
                 return Result(msg=repr(e), err=True)
             else:
-                return Result(msg=f"[{self.id}] closed.", err=False)
-
+                return Result(msg=f"VISA device {self.id} closed.", err=False)
 
     def open_channel(self, channel) -> Result:
-        log.info(f'Opening channel {channel}.')
         return self.write(f'OUTPut{channel} ON')
 
     def close_channel(self, channel) -> Result:
-        log.info(f'Closing channel {channel}.')
         return self.write(f'OUTPut{channel} OFF')
 
     def set_amp(self, amp:float, ch:int):
@@ -207,7 +187,7 @@ class AWG:
         self.write(msg)
         self.wait()
         
-    def send_arb_ch(self, arb:list, amp:float, sample_rate:float, name:str, channel:int) -> None:
+    def send_arb_ch(self, arb:list, amp:float, sample_rate:float, name:str, channel:int) -> Result:
         """
         Sends an arbitrary waveform to device.
             arb         : list of waveform points
@@ -236,7 +216,6 @@ class AWG:
         # Send header and waveform data to instrument in binary format
         # (currently using pyvisas built-in write_binary_values function. could be causing an error but waveform seems to be loading onto AWG just fine.)
         # arbBytes = str(len(arb) * 4)
-        log.info('Downloading waveform to AWG.')
         header = sName + 'DATA:ARBitrary ' + name + f',' #{len(arbBytes)}' + arbBytes
         self.device.write_binary_values(header, arb)
         
@@ -265,9 +244,11 @@ class AWG:
         error = self.query('SYST:ERR?').result()
 
         if error[0:13] == '+0,"No error"':
-            log.info('Waveform transfered without error.')
+            result = Result(msg='Waveform transfered without error', err=False)
         else:
-            log.error(error)
+            result = Result(msg=error, err=True)
+
+        return result
 
     def modulate_ampitude(self, freq:float, channel:int) -> None:
         """
@@ -338,7 +319,6 @@ class AWG:
         self.device.write('*WAI')
 
 
-
 class STM:
     """
     Base STM class from which specific STM model classes inherit.
@@ -363,10 +343,31 @@ class STM:
         else:
             return Result(msg="Connected", err=False)
     
+    def send(self, msg: str) -> Result:
+        if self._socket != None:
+            try:
+                self._socket.send(msg.encode())
+            except socket.error as e:
+                return Result(msg=repr(e), err=True)
+            else:
+                return Result(msg=f"Succesfully sent '{msg}' to {self.ip}", err=False)
+
+    def recv(self, buffer: int) -> Result:
+        if self.socket != None:
+            try:
+                result = self.socket.recv(buffer)
+            except socket.error as e:
+                return Result(msg=repr(e), err=True)
+            else:
+                return Result(msg=result, err=False)
+
     def on_close(self) -> None:
         pass
     
     def set_bias(self) -> None:
+        pass
+
+    def get_bias(self) -> float:
         pass
     
     def set_position(self) -> None:
@@ -394,35 +395,21 @@ class RHK_R9(STM):
         if self._socket is not None:
             self._socket.shutdown(2)
             self._socket.close()
-            
-    def set_tip_control(self, tip_mode:str):
-        """
-        Sets STM tip control mode to tip_mode. (e.g. set_tip_control("freeze"), set_tip_control("unlimit"))
-        """
-        tip_mode = tip_mode.title()
-        cmd = f'SetHWParameter, Z PI Controller 1, Tip Control, {tip_mode}\n'
-        self._socket.send(cmd.encode())
-        err = self._socket.recv(self._buffer_size)
-
-        if err != b'Done':
-            log.error(err)
-        else:
-            log.info(f'STM tip control set to {tip_mode}')
         
     def set_bias(self, bias: float):
         """
         Sets STM bias to bias
         """
         cmd = f'SetSWParameter, STM Bias, Value, {bias}\n'
-        self._socket.send(cmd.encode())
-        err = self._socket.recv(self._buffer_size)
+        self.send(cmd)
+        msg = self._socket.recv(self._buffer_size)
 
-        while(err != b'Done'):
-            log.error(err)
-            self._socket.send(cmd.encode())
-            err = self._socket.recv(self._buffer_size)
-        log.info(f'STM bias set to {bias}.')
-        
+        if 'Done' not in str(msg):
+            result = Result(msg=f'Bias not set, STM returned error: {msg}', err=True)
+        else:
+            result = Result(msg=f'STM bias set to {bias}', err=False)
+
+        return result
         
     def get_bias(self):
         """
@@ -437,40 +424,61 @@ class RHK_R9(STM):
             self._socket.send(cmd.encode())
             bias = self._socket.recv(self._buffer_size).decode()
             return float(bias)
+            
+    def set_tip_control(self, tip_mode:str):
+        """
+        Sets STM tip control mode to tip_mode. (e.g. set_tip_control("freeze"), set_tip_control("unlimit"))
+        """
+        tip_mode = tip_mode.title()
+        cmd = f'SetHWParameter, Z PI Controller 1, Tip Control, {tip_mode}\n'
+        self.send(cmd)
+        result = self.recv(self._buffer_size)
+
+        if 'Done' not in str(result.msg):
+            result = Result(msg=f'Tip control not set, STM returned error: {result.msg}', err=True)
+        else:
+            result = Result(msg=f'STM tip control set to {tip_mode}', err=False)
+
+        return result
         
-    def set_position(self, x: float, y: float) -> None:
+    def set_tip_position(self, x: float, y: float) -> None:
         """
         Set the STM tip to (x, y) in scan coordinates
         """
-        msg = np.array([])
+        results = np.array([])
 
         cmd = f'SetSWParameter, Scan Area Window, Tip X in scan coordinates, {x}\n'
-        self._socket.send(cmd.encode())
-        msg = np.append(self._socket.recv(self._buffer_size))
+        self.send(cmd)
+        results = np.append(results, self.recv(self._buffer_size))
         
         cmd = f'SetSWParameter, Scan Area Window, Tip Y in scan coordinates, {x}\n'
-        self._socket.send(cmd.encode())
-        msg = np.append(self._socket.recv(self._buffer_size))
+        self.send(cmd)
+        results = np.append(results, self.recv(self._buffer_size))
 
-        err = msg[msg != b'Done']
+        errs = []
+        for result in results:
+            if 'Done' not in str(result.msg):
+                errs.append(True)
+            else:
+                errs.append(False)
 
-        if len(err) > 0:
-            for e in err:
-                log.error(e)
+        if any(errs):
+            result = Result(msg=f'Tip position not set, STM returned:\n\t\t\t For x coordinate: {results[0].msg}\n\t\t\t For y coordinate: {results[1].msg}', err=True)
         else:
-            log.info(f'STM tip sent to ({x}, {y}) in scan coordinates.')
+            result = Result(msg=f'Tip position set to {(x, y)}')
+        return result
 
-    def get_position(self) -> Vector2:
+    def get_tip_position(self) -> Vector2:
         """
         Returns the current tip position as a Vector2.
         """
         cmd = 'GetSWParameter, Scan Area Window, Tip X in scan coordinates\n'
         self._socket.send(cmd.encode())
-        x = float(self._socket.recv(self._buffer_size))
+        x = float(self.recv(self._buffer_size).msg)
         
         cmd = 'GetSWParameter, Scan Area Window, Tip Y in scan coordinates\n'
         self._socket.send(cmd.encode())
-        y = float(self._socket.recv(self._buffer_size))
+        y = float(self.recv(self._buffer_size).msg)
         try:
             return Vector2(x=x, y=y)
         except:
@@ -483,5 +491,15 @@ class RHK_R9(STM):
             y = float(self._socket.recv(self._buffer_size))
             return Vector2(x=x, y=y)
     
-    def image(self):
-        pass
+    def single_image(self, lines, size, x_offset, y_offset, scan_speed):
+        start_pos = (x_offset + size/2, y_offset + size/2)
+
+        # Put tip in starting position
+        # Begin image loop#
+        # Begin line loop #
+        # Take pump-probe spec
+        # Move tip over to next position
+        # End line loop #
+        # When end of line reached, turn around and get data for reverse current
+        # When one line (back and forth) is finished, move tip down 
+        # End image loop #
