@@ -1,4 +1,4 @@
-import os, time
+import os, time, logging
 import numpy as np
 from ppspectroscopy.devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
@@ -31,13 +31,13 @@ class PumpProbeExperiment:
     Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
         NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
     """
-    date: datetime
     pump: Pulse
     probe: Pulse
     domain: tuple
     samples: int
     fixed_time_delay: float = None
     stm_coords: Vector2 = Vector2(0,0)
+    date: datetime = None
     
     def generate_meta(self) -> dict:
         return {'Author': os.environ.get('USERNAME'),
@@ -142,7 +142,7 @@ class PumpProbe():
 
         return pulse
 
-    def run(self, procedure: PumpProbeProcedure, experiment_idx: int, new_arb: bool, plotter=None) -> Tuple[list, list]:
+    def run(self, procedure: PumpProbeProcedure, experiment_idx: int, new_arb: bool, logger:logging.Logger, plotter=None) -> Tuple[list, list]:
         """
         Runs a pump-probe experiment by sweeping the phase of one of the pulses.
             procedure      : PumpProbeProcedure currently running
@@ -155,26 +155,30 @@ class PumpProbe():
         proc_end = exp.domain[1]
         samples = exp.samples
         
+        # Sending a new waveform to the AWG
         if new_arb:
             # Reset both devices
+            logger.info('Resetting AWG')
             self.awg.reset()
+            logger.info('Resetting Lock-In')
             self.lockin.reset()
-            self.lockin.default()
+            self.lockin.default(logger=logger)
             # Create arb for each pulse
             pump_arb: list = self.create_arb(exp.pump)
             probe_arb: list = self.create_arb(exp.probe)
             # Send arbs to awg
-            self.awg.send_arb_ch(pump_arb, exp.pump.amp, self.config.sample_rate, 'Pump', 1)
-            self.awg.send_arb_ch(probe_arb, exp.probe.amp, self.config.sample_rate, 'Probe', 2)
+            logger.info('Sending new waveform to AWG')
+            self.awg.send_arb_ch(arb=pump_arb, amp=exp.pump.amp, sample_rate=self.config.sample_rate, name='Pump', channel=Channel.PUMP)
+            self.awg.send_arb_ch(arb=probe_arb, amp=exp.probe.amp, sample_rate=self.config.sample_rate, name='Probe', channel=Channel.PROBE)
             # Modulate channel 2 amplitude
-            self.awg.modulate_ampitude(self.config.lockin_freq, 2)
+            self.awg.modulate_ampitude(self.config.lockin_freq, channel=Channel.PROBE)
             # Combine channels
-            self.awg.combine_channels(out=1, feed=2)
+            self.awg.combine_channels(out=Channel.PROBE, feed=Channel.PUMP)
             # Sync channel arbs
             self.awg.sync_channels(syncFunc=True)
         else:
-            self.awg.set_amp(exp.pump.amp, 1)
-            self.awg.set_amp(exp.probe.amp, 2)
+            self.awg.set_amp(exp.pump.amp, Channel.PUMP)
+            self.awg.set_amp(exp.probe.amp, Channel.PROBE)
 
         if exp.fixed_time_delay:
             phi = (exp.fixed_time_delay + 2*exp.pump.edge + exp.pump.width) * self.config.sample_rate / 360
@@ -186,23 +190,38 @@ class PumpProbe():
         x = list()
 
         # Set STM tip to freeze
-        self.stm.set_tip_control("freeze")
+        result = self.stm.set_tip_control("freeze").report(logger=logger)
+        if result.err:
+            return (x, data)
+        
         time.sleep(1)
         
         """TODO: have bias a setting in the experiment?"""
         # Set STM bias to minimum
-        prev_bias = self.stm.get_bias()
-        self.stm.set_bias(0.01)
+        prev_bias = self.stm.get_bias().value()
+        bias_min = 0.01
+
+        result = self.stm.set_bias(bias_min).report(logger=logger)
+        while(result.err):
+            result = self.stm.set_bias(bias_min).report(logger=logger)
+
+        time.sleep(0.1)
+
+        bias = self.stm.get_bias().report(logger=logger).value()
+        while(type(bias) != float and bias != bias_min):
+            bias = self.stm.get_bias().report(logger=logger).value()
+        
         time.sleep(1) # Time delay added due to lack of understanding of STM bandwidth
 
         # Open channel 1 on AWG
-        self.awg.open_channel(1)
+        self.awg.open_channel(1).report(logger=logger)
         
         # For each phase in phase_range, set phase on AWG sweep channel and measure output from lockin. If a plotter object is given to
         #   PumpProbe.run() then emit the latest data.
-        self.lockin.send('X.'.encode()).expected("Initial buffering message not sent.")
+        self.lockin.send('X.').expected("Initial buffering message not sent", logger)
         time.sleep(0.2)
-        self.lockin.recv(1024).expected("Initial buffering message not received.")
+        self.lockin.recv(1024).expected("Initial buffering message not received", logger)
+        logger.info('Beginning pump-probe procedure')
         for i in range(samples):
             # define x coordinate
             dx = proc_range[i] * procedure.conversion_factor
@@ -213,12 +232,14 @@ class PumpProbe():
             time.sleep(0.01)
 
             # Read value from lock-in
-            self.lockin.send('X.'.encode()).expected("Request for X value not sent to Lockin")
-            y = self.lockin.recv(1024).expected("X value not recieved from Lockin")
+            self.lockin.send('X.').expected("Request for X value not sent to Lockin", logger)
+            y = self.lockin.recv(1024).expected("X value not recieved from Lockin", logger)
             if y.err == False:
-                y = y.result().decode()
-            y = y.split()[0]
-            y = float(y)
+                y = y.value().decode()
+                y = y.split()[0]
+                y = float(y)
+            else:
+                y = y.value()
             data.append(y)
             
             # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
@@ -226,15 +247,26 @@ class PumpProbe():
                 plotter._plot.emit([x[-1], data[-1]])
         
         # Close channel 1 on AWG
-        self.awg.close_channel(1)
+        self.awg.close_channel(1).report(logger=logger)
         time.sleep(1)
         
-        # Set bias to default
-        self.stm.set_bias(prev_bias)
+        """
+        It's very important that the previous bias is set correctly before the tip control is set to unlimit, otherwise the tip may crash into the surface
+        """
+        result = self.stm.set_bias(prev_bias).report(logger=logger)
+        while(result.err):
+            result = self.stm.set_bias(prev_bias).report(logger=logger)
+
+        time.sleep(0.1)
+
+        bias = self.stm.get_bias().report(logger=logger).value()
+        while(type(bias) != float and bias != prev_bias):
+            bias = self.stm.get_bias().report(logger=logger).value()
+
         time.sleep(1)
-        
+
         # Set tip to unlimit
-        self.stm.set_tip_control("unlimit")
+        self.stm.set_tip_control("unlimit").report(logger=logger)
         time.sleep(1)
         
         return (x, data)
