@@ -222,29 +222,32 @@ class PumpProbe():
         time.sleep(0.2)
         self.lockin.recv(1024).expected("Initial buffering message not received", logger)
         logger.info('Beginning pump-probe procedure')
-        for i in range(samples):
-            # define x coordinate
-            dx = proc_range[i] * procedure.conversion_factor
-            x.append(dx)
-            
-            # Procedure done each dx
-            procedure.call(proc_range[i], procedure.channel)
-            time.sleep(0.01)
+        for spectra in range(num_spectra):
+            for i in range(samples):
+                # define x coordinate
+                dx = proc_range[i] * procedure.conversion_factor
+                x.append(dx)
+                
+                # Procedure done each dx
+                procedure.call(proc_range[i], procedure.channel)
+                time.sleep(0.01)
 
-            # Read value from lock-in
-            self.lockin.send('X.').expected("Request for X value not sent to Lockin", logger)
-            y = self.lockin.recv(1024).expected("X value not recieved from Lockin", logger)
-            if y.err == False:
-                y = y.value().decode()
-                y = y.split()[0]
-                y = float(y)
-            else:
-                y = y.value()
-            data.append(y)
-            
-            # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
-            if plotter and plotter._plot:
-                plotter._plot.emit([x[-1], data[-1]])
+                # Read value from lock-in
+                self.lockin.send('X.').expected("Request for X value not sent to Lockin", logger)
+                y = self.lockin.recv(1024).expected("X value not recieved from Lockin", logger)
+                if y.err == False:
+                    y = y.value().decode()
+                    y = y.split()[0]
+                    y = float(y)
+                else:
+                    y = y.value()
+                data.append(y)
+                
+                # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
+                if plotter and plotter._plot:
+                    plotter._plot.emit([x[-1], data[-1]])
+            if plotter:
+                plotter._new_line.emit()
         
         # Close channel 1 on AWG
         self.awg.close_channel(1).report(logger=logger)

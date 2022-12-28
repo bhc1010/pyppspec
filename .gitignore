@@ -162,6 +162,6 @@ cython_debug/
 # Build
 /build
 /dist
-/ppspectroscopy.egg-info
+/pyppspec.egg-info
 
 .gitignore
