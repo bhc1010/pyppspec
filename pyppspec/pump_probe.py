@@ -28,13 +28,14 @@ class Pulse:
 @dataclass()
 class PumpProbeExperiment:
     """
-    Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiement.
+    Defines a mutable dataclass PumpProbeExperiment to hold pump and probe pulse data about a specific experiment.
         NOTE: Needs to be mutable so that stm_coords can be set when experiment is run and not when object is added to queue
     """
     pump: Pulse
     probe: Pulse
     domain: tuple
     samples: int
+    spectra: int
     fixed_time_delay: float = None
     stm_coords: Vector2 = Vector2(0,0)
     date: datetime = None
@@ -148,12 +149,13 @@ class PumpProbe():
             procedure      : PumpProbeProcedure currently running
             experiment_idx : index for PumpProbeExperiment to run
             new_arb        : bool to decide with new waveform information needs to be sent to AWG
-            plotter        : optional ploting object to handle plotting
+            plotter        : optional plotting object to handle plotting
         """
         exp = procedure.experiments[experiment_idx]
         proc_start = exp.domain[0]
         proc_end = exp.domain[1]
         samples = exp.samples
+        spectra = exp.spectra
         
         # Sending a new waveform to the AWG
         if new_arb:
@@ -171,7 +173,7 @@ class PumpProbe():
             self.awg.send_arb_ch(arb=pump_arb, amp=exp.pump.amp, sample_rate=self.config.sample_rate, name='Pump', channel=Channel.PUMP)
             self.awg.send_arb_ch(arb=probe_arb, amp=exp.probe.amp, sample_rate=self.config.sample_rate, name='Probe', channel=Channel.PROBE)
             # Modulate channel 2 amplitude
-            self.awg.modulate_ampitude(self.config.lockin_freq, channel=Channel.PROBE)
+            self.awg.modulate_amplitude(self.config.lockin_freq, channel=Channel.PROBE)
             # Combine channels
             self.awg.combine_channels(out=Channel.PROBE, feed=Channel.PUMP)
             # Sync channel arbs
@@ -186,8 +188,8 @@ class PumpProbe():
 
         proc_range = np.linspace(proc_start, proc_end, samples)
         
-        data = list()
-        x = list()
+        data = [[] for _ in range(spectra)]
+        x = [[] for _ in range(spectra)]
 
         # Set STM tip to freeze
         result = self.stm.set_tip_control("freeze").report(logger=logger)
@@ -222,11 +224,11 @@ class PumpProbe():
         time.sleep(0.2)
         self.lockin.recv(1024).expected("Initial buffering message not received", logger)
         logger.info('Beginning pump-probe procedure')
-        for spectra in range(num_spectra):
+        for k in range(spectra):
             for i in range(samples):
                 # define x coordinate
                 dx = proc_range[i] * procedure.conversion_factor
-                x.append(dx)
+                x[k].append(dx)
                 
                 # Procedure done each dx
                 procedure.call(proc_range[i], procedure.channel)
@@ -234,20 +236,26 @@ class PumpProbe():
 
                 # Read value from lock-in
                 self.lockin.send('X.').expected("Request for X value not sent to Lockin", logger)
-                y = self.lockin.recv(1024).expected("X value not recieved from Lockin", logger)
+                y = self.lockin.recv(1024).expected("X value not received from Lockin", logger)
                 if y.err == False:
                     y = y.value().decode()
                     y = y.split()[0]
                     y = float(y)
                 else:
                     y = y.value()
-                data.append(y)
+                data[k].append(y)
                 
                 # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
                 if plotter and plotter._plot:
-                    plotter._plot.emit([x[-1], data[-1]])
+                    plotter._plot.emit([x[k][-1], data[k][-1]])
+
+                """ end single spectra """
+
+            # start new line for next spectra
             if plotter:
                 plotter._new_line.emit()
+
+        """ end multiple spectra """
         
         # Close channel 1 on AWG
         self.awg.close_channel(1).report(logger=logger)
