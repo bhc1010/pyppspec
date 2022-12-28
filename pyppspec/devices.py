@@ -271,7 +271,7 @@ class AWG:
 
         return result
 
-    def modulate_ampitude(self, freq:float, channel:int) -> None:
+    def modulate_amplitude(self, freq:float, channel:int) -> None:
         """
         Modulates the amplitude of the waveform on the specified channel of device by a square wave with frequency freq.
             freq    : modulation frequency
