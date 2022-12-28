@@ -1,6 +1,6 @@
 import os, time, logging
 import numpy as np
-from ppspectroscopy.devices import STM, LockIn, AWG, Vector2
+from pyppspec.devices import STM, LockIn, AWG, Vector2
 from dataclasses import dataclass
 from typing import Tuple, Callable, List
 from enum import IntEnum, Enum
