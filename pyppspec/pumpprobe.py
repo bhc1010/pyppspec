@@ -1,6 +1,6 @@
 import os, time, logging
 import numpy as np
-from pyppspec.devices import STM, LockIn, AWG, Vector2
+from pyppspec.devices import STM, LockIn, AWG, Vector2, Result
 from dataclasses import dataclass
 from typing import Tuple, Callable, List
 from enum import IntEnum, Enum
@@ -34,6 +34,7 @@ class PumpProbeExperiment:
     pump: Pulse
     probe: Pulse
     domain: tuple
+    conversion_factor: float
     samples: int
     spectra: int
     fixed_time_delay: float = None
@@ -44,7 +45,7 @@ class PumpProbeExperiment:
         return {'Author': os.environ.get('USERNAME'),
                 'Description': f"An STM pump-probe measurement. Settings: {repr(self)}",
                 'Creation Time': self.date,
-                'Software': "ppspectroscopy",
+                'Software': "pyppspec",
                 'Comment': ""}
     
     def generate_csv_head(self) -> List[str]:
@@ -63,7 +64,7 @@ class PumpProbeExperiment:
         out.append(['width',  f'{self.probe.width}'])
         out.append(['edge', f'{self.probe.edge}'])
         out.append(['[Settings]', ''])
-        out.append(['domain', f'{self.domain}'])
+        out.append(['domain', f'({self.domain[0] * self.conversion_factor}ns, {self.domain[1] * self.conversion_factor}ns)'])
         out.append(['samples', f'{self.samples}'])
         out.append(['fixed time delay', f'{self.fixed_time_delay}'])
         return out
@@ -77,7 +78,6 @@ class PumpProbeProcedure:
     call: Callable
     channel: Channel
     experiments: List[PumpProbeExperiment]
-    conversion_factor: float
     
     def generate_domain_title(self) -> str:
         if self.proc_type == PumpProbeProcedureType.TIME_DELAY:
@@ -187,14 +187,12 @@ class PumpProbe():
             self.awg.set_phase(phi, Channel.PROBE)
 
         proc_range = np.linspace(proc_start, proc_end, samples)
-        
         data = [[] for _ in range(spectra)]
-        x = [[] for _ in range(spectra)]
 
         # Set STM tip to freeze
         result = self.stm.set_tip_control("freeze").report(logger=logger)
         if result.err:
-            return (x, data)
+            return ([], [])
         
         time.sleep(1)
         
@@ -227,8 +225,7 @@ class PumpProbe():
         for k in range(spectra):
             for i in range(samples):
                 # define x coordinate
-                dx = proc_range[i] * procedure.conversion_factor
-                x[k].append(dx)
+                dx = proc_range[i] * exp.conversion_factor
                 
                 # Procedure done each dx
                 procedure.call(proc_range[i], procedure.channel)
@@ -247,13 +244,13 @@ class PumpProbe():
                 
                 # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
                 if plotter and plotter._plot:
-                    plotter._plot.emit([x[k][-1], data[k][-1]])
+                    plotter._plot.emit([dx, data[k][-1]])
 
                 """ end single spectra """
 
             # start new line for next spectra
             if plotter:
-                plotter._new_line.emit()
+                plotter._new_line.emit("test")
 
         """ end multiple spectra """
         
@@ -280,4 +277,4 @@ class PumpProbe():
         self.stm.set_tip_control("unlimit").report(logger=logger)
         time.sleep(1)
         
-        return (x, data)
+        return (proc_range * exp.conversion_factor, data)
