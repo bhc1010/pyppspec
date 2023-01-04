@@ -40,34 +40,6 @@ class PumpProbeExperiment:
     fixed_time_delay: float = None
     stm_coords: Vector2 = Vector2(0,0)
     date: datetime = None
-    
-    def generate_meta(self) -> dict:
-        return {'Author': os.environ.get('USERNAME'),
-                'Description': f"An STM pump-probe measurement. Settings: {repr(self)}",
-                'Creation Time': self.date,
-                'Software': "pyppspec",
-                'Comment': ""}
-    
-    def generate_csv_head(self) -> List[str]:
-        out =  []
-        out.append(['[Date]', ''])
-        out.append([f'{self.date}', ''])
-        out.append(['[Position]' ,''])
-        out.append(['x', f'{self.stm_coords.x}'])
-        out.append(['y', f'{self.stm_coords.y}'])
-        out.append(['[Pump]', ''])
-        out.append(['amp', f'{self.pump.amp}'])
-        out.append(['width',  f'{self.pump.width}'])
-        out.append(['edge', f'{self.pump.edge}'])
-        out.append(['[Probe]', ''])
-        out.append(['amp', f'{self.probe.amp}'])
-        out.append(['width',  f'{self.probe.width}'])
-        out.append(['edge', f'{self.probe.edge}'])
-        out.append(['[Settings]', ''])
-        out.append(['domain', f'({self.domain[0] * self.conversion_factor}ns, {self.domain[1] * self.conversion_factor}ns)'])
-        out.append(['samples', f'{self.samples}'])
-        out.append(['fixed time delay', f'{self.fixed_time_delay}'])
-        return out
 
 @dataclass()
 class PumpProbeProcedure:
@@ -78,15 +50,6 @@ class PumpProbeProcedure:
     call: Callable
     channel: Channel
     experiments: List[PumpProbeExperiment]
-    
-    def generate_domain_title(self) -> str:
-        if self.proc_type == PumpProbeProcedureType.TIME_DELAY:
-            domain_title = r'Time delay, $\Delta t$ (ns)'
-        elif self.proc_type == PumpProbeProcedureType.AMPLITUDE:
-            domain_title = f'{self.channel.name.title()} amplitude (V)'
-        else:
-            domain_title = ''
-        return domain_title
 
 @dataclass
 class PumpProbeConfig:
@@ -99,7 +62,8 @@ class PumpProbeConfig:
     lockin_freq: float
     awg_id: str
     sample_rate: float
-    save_path: str = ""
+    save_path: str = ''
+    file_save_name: str = ''
 
 class PumpProbe():
     """
@@ -234,6 +198,9 @@ class PumpProbe():
                 # Read value from lock-in
                 self.lockin.send('X.').expected("Request for X value not sent to Lockin", logger)
                 y = self.lockin.recv(1024).expected("X value not received from Lockin", logger)
+                
+                # y = Result(val=np.sin(np.radians(proc_range[i])) + np.random.rand()/2, err=True)
+                
                 if y.err == False:
                     y = y.value().decode()
                     y = y.split()[0]
@@ -245,12 +212,13 @@ class PumpProbe():
                 # If a plotter object is given (with a pyqtSignal _plot), then emit latest data
                 if plotter and plotter._plot:
                     plotter._plot.emit([dx, data[k][-1]])
+                    # time.sleep(0.03)
 
                 """ end single spectra """
 
             # start new line for next spectra
-            if plotter:
-                plotter._new_line.emit("test")
+            if plotter and plotter._new_line and spectra > 1:
+                plotter._new_line.emit()
 
         """ end multiple spectra """
         
